@@ -1,6 +1,6 @@
 #pragma once
 
-#define VERSION "0.9.8"  // Semantic versioning format that can be auto-incremented
+#define VERSION "0.9.9"  // Semantic versioning format that can be auto-incremented
 
 //arbitray limits
 #define MAX_VCODES 0x121  //biggest defined code in scancodes.h must be smaller than this
@@ -38,3 +38,4 @@ const std::string INI_TAG_COMBOS = "COMBO";
 const std::string INI_TAG_ALPHA_FROM = "ALPHA_FROM";
 const std::string INI_TAG_ALPHA_TO = "ALPHA_TO";
 const std::string INI_TAG_ALPHA_END = "ALPHA_END";
+
