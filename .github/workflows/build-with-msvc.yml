@@ -1,0 +1,96 @@
+name: Build with MSVC
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allow manual triggering
+  release:
+    types: [ created ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        build_type: [Release]  # Only Release mode build
+        platform: [x64]
+        include:
+          - platform: x64
+            artifact_suffix: win64
+          # Uncomment to add 32-bit build
+          # - platform: Win32
+          #   artifact_suffix: win32
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Install CMake
+      uses: lukka/get-cmake@latest
+
+    - name: Setup Visual Studio Developer Command Prompt
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: ${{ matrix.platform }}
+
+    - name: Build with MSVC
+      shell: pwsh
+      run: |
+        ./Build.ps1 -Compiler msvc -Platform ${{ matrix.platform }} -BuildType Release -StaticLinkInterception -Verbose
+
+    - name: Package artifacts
+      shell: pwsh
+      run: |
+        $outputDir = "capsicain/build"
+        $packageDir = "capsicain-${{ matrix.artifact_suffix }}"
+        
+        # Create package directory
+        New-Item -ItemType Directory -Path $packageDir
+        
+        # Copy executable - first try the expected path based on build configuration
+        if (Test-Path "$outputDir/Release/capsicain.exe") {
+            Copy-Item -Path "$outputDir/Release/capsicain.exe" -Destination $packageDir/
+        } elseif (Test-Path "$outputDir/RELEASE/capsicain.exe") {
+            Copy-Item -Path "$outputDir/RELEASE/capsicain.exe" -Destination $packageDir/
+        } elseif (Test-Path "$outputDir/capsicain.exe") {
+            Copy-Item -Path "$outputDir/capsicain.exe" -Destination $packageDir/
+        } else {
+            # Search for the executable recursively as a fallback
+            Write-Host "Searching for capsicain.exe in output directory..."
+            $exeFiles = Get-ChildItem -Path $outputDir -Recurse -Filter "capsicain.exe" | Where-Object { $_.DirectoryName -like "*Release*" -or $_.DirectoryName -notmatch "(Debug|Release)" }
+            if ($exeFiles.Count -gt 0) {
+                Write-Host "Found executable at: $($exeFiles[0].FullName)"
+                Copy-Item -Path $exeFiles[0].FullName -Destination $packageDir/
+            } else {
+                Write-Error "Could not find capsicain.exe in $outputDir directory"
+                exit 1
+            }
+        }
+        
+        # Copy necessary files (but not interception.dll since we're using static linking)
+        Copy-Item -Path "capsicain/*.ini" -Destination $packageDir/ -ErrorAction SilentlyContinue
+        Copy-Item -Path "*.md" -Destination $packageDir/ -ErrorAction SilentlyContinue
+        
+        # Create zip archive
+        Compress-Archive -Path $packageDir/* -DestinationPath "$packageDir.zip"
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: capsicain-${{ matrix.artifact_suffix }}
+        path: capsicain-${{ matrix.artifact_suffix }}.zip
+
+    # Upload to release if this is a release build
+    - name: Upload release asset
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: capsicain-${{ matrix.artifact_suffix }}.zip
+        asset_name: capsicain-${{ matrix.artifact_suffix }}.zip
+        asset_content_type: application/zip
