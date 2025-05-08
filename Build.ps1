@@ -22,7 +22,7 @@ $scriptPath = $PSScriptRoot
 if (-not $scriptPath) { $scriptPath = (Get-Location).Path }
 $rootDir = $scriptPath
 $buildDir = Join-Path $rootDir "capsicain\build\cmake-$Platform-$BuildType"
-$outputDir = Join-Path $rootDir "capsicain\build"
+$outputDir = Join-Path $buildDir $BuildType
 
 # SECTION: Clean
 if ($Clean -and (Test-Path $buildDir)) {
@@ -41,7 +41,11 @@ if (Get-Command vswhere -ErrorAction SilentlyContinue) {
     elseif ($vsVersion -match '^16') { $generator = "Visual Studio 16 2019" }
     elseif ($vsVersion -match '^15') { $generator = "Visual Studio 15 2017" }
 }
-$cmakePlatform = ($Platform -eq "Win32") ? "Win32" : "x64"
+if ($Platform -eq "Win32") {
+    $cmakePlatform = "Win32"
+} else {
+    $cmakePlatform = "x64"
+}
 
 # SECTION: CMake Configure
 Push-Location $buildDir
@@ -63,10 +67,8 @@ Pop-Location
 # SECTION: Find Executable
 $exePath = ""
 $possibleExePaths = @(
-    "$buildDir\$BuildType\capsicain.exe",
-    "$buildDir\capsicain.exe",
-    "$outputDir\$BuildType\capsicain.exe",
-    "$outputDir\capsicain.exe"
+    "$outputDir\capsicain.exe",
+    "$buildDir\capsicain.exe"
 )
 foreach ($path in $possibleExePaths) {
     if (Test-Path $path) { $exePath = $path; break }

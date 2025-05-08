@@ -1,0 +1,41 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "kill-capsicain",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy", "Bypass",
+                "-Command", "while ($true) { $procs = Get-Process -Name capsicain -ErrorAction SilentlyContinue; if (-not $procs) { break }; $procs | ForEach-Object { try { Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue } catch {} }; Start-Sleep -Milliseconds 200 }; exit 0"
+            ]
+        },
+        {
+            "label": "build-capsicain",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/Build.ps1",
+                "-BuildType",
+                "Debug"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "pre-debug-capsicain",
+            "dependsOn": [
+                "kill-capsicain",
+                "build-capsicain"
+            ],
+            "dependsOrder": "sequence"
+        }
+    ]
+}
