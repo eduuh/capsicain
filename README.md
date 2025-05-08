@@ -1,3 +1,5 @@
+### February 2024: new release v97: new global to deactivate the standard Windows shortcut "LWIN tapped -> open Start menu"
+### May 2025: Now supports fully open-source build process using Clang + CMake without Visual Studio dependencies and flexible interception.dll linking options
 ### July 2023: v95 new option to include/exclude specific keyboards, see <a href="https://github.com/cajhin/capsicain/wiki/Keyword%3A-OPTION#option-includedeviceid-searchstring">IncludeDeviceId</a>
 ### December 2022: Windows 11 update 22H2 breaks *minimize to tray*, see Wiki for a <a href="https://github.com/cajhin/capsicain/wiki/X-doesn't-work#windows-11-version-22h2-cannot-minimize-to-tray">fix</a>
 
@@ -15,8 +17,10 @@ Uses the [Interception driver](https://github.com/oblitum/Interception) to recei
 - <a href="https://github.com/cajhin/capsicain/releases">Latest release</a>
 - <a href="https://github.com/cajhin/capsicain/wiki/Installation">Install guide</a>
 - <a href="https://github.com/cajhin/capsicain/wiki">Manual</a>
+- <a href="BUILD.md">Build instructions</a>
 - Readme contents
   - [Why?](#why)
+  - [Build Requirements](#build-requirements)
   - [Features](#features)
     - [Features of the default capsicain.ini](#features-of-the-default-capsicainini)
     - [Additional AutoHotKey Features](#additional-autohotkey-features)
@@ -31,6 +35,37 @@ I touch type. I code. I need a keyboard setup where I can keep my fingers on the
 Also, my layout cured my RSI, and I'm a seriously fast coder/editor on any keyboard (and I never need to learn non-standard laptop keyboards).
 
 Earlier versions were very focused on my own configuration. Latest versions are fully configurable.
+
+## Build Requirements
+
+Capsicain can be built on Windows using any of these open-source toolchains:
+
+- **Clang with Ninja** (recommended): A modern C++ compiler with fast build times
+- **MinGW-w64**: GCC for Windows 
+- **Visual Studio Build Tools**: Microsoft's C++ compiler (no need for full IDE)
+
+### Quick Start with Open-Source Tools
+
+1. Install required tools:
+   ```powershell
+   # Run as Administrator
+   ./install-build-tools.ps1
+   ```
+
+2. Build the project:
+   ```powershell
+   # Default build with dynamic linking of interception.dll
+   ./BuildWithClang.ps1 -BuildType Release
+   
+   # Or with static linking of interception.dll
+   ./Build.ps1 -BuildType Release -StaticLinkInterception
+   ```
+
+The build system now offers flexible linking options for the interception library:
+- **Dynamic linking** (default): Smaller executable but requires interception.dll alongside it
+- **Static linking**: Larger executable but no separate DLL needed
+
+For detailed build instructions and options, see [BUILD.md](BUILD.md).
 
 ## Features
 

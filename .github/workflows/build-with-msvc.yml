@@ -1,0 +1,36 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+
+jobs:
+  build-and-upload:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up MSVC Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build with PowerShell
+        shell: pwsh
+        run: ./Build.ps1
+
+      - name: Zip RELEASE folder
+        shell: pwsh
+        run: |
+          $releaseFolder = "capsicain/build/cmake-x64-Release/RELEASE"
+          $zipPath = "capsicain-release.zip"
+          Compress-Archive -Path "$releaseFolder/*" -DestinationPath $zipPath
+
+      - name: Upload Release Asset
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: capsicain-release.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

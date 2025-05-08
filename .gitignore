@@ -60,6 +60,8 @@ $RECYCLE.BIN/
 *.suo
 *.user
 *.sln.docstates
+*.userprefs
+*.usertasks
 
 # Build results
 [Dd]ebug/
@@ -73,6 +75,22 @@ bld/
 [Bb]in/
 [Oo]bj/
 enc_temp_folder/
+
+# CMake specific
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+build*/
+*-build/
+
+# Capsicain specific
+capsicain-x64-Release.zip
+capsicain-x64-Release/
+
 # Roslyn cache directories
 *.ide/
 
@@ -124,11 +142,14 @@ ipch/
 *.opensdf
 *.sdf
 *.cachefile
+*.VC.db
+*.VC.VC.opendb
 
 # Visual Studio profiler
 *.psess
 *.vsp
 *.vspx
+*.sap
 
 # TFS 2012 Local Workspace
 $tf/
