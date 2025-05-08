@@ -1,160 +1,36 @@
-name: Build with MSVC
+name: Release
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
-  workflow_dispatch:  # Allow manual triggering
+    branches: [main]
   release:
-    types: [ created ]
+    types: [published]
 
 jobs:
-  build:
+  build-and-upload:
     runs-on: windows-latest
-    strategy:
-      matrix:
-        build_type: [Release]  # Only Release mode build
-        platform: [x64]
-        include:
-          - platform: x64
-            artifact_suffix: win64
-          # Uncomment to add 32-bit build
-          # - platform: Win32
-          #   artifact_suffix: win32
-
     steps:
-    - uses: actions/checkout@v3
-      with:
-        submodules: recursive
-        fetch-depth: 0  # Fetch all history for version calculation
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Git
-      run: |
-        git config user.name "GitHub Actions"
-        git config user.email "actions@github.com"
+      - name: Set up MSVC Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
 
-    - name: Generate version number
-      id: version
-      shell: pwsh
-      run: |
-        # Get the current version from constants.h
-        $constantsPath = "capsicain/constants.h"
-        $constantsContent = Get-Content -Path $constantsPath -Raw
-        
-        if ($constantsContent -match '#define VERSION "(.+)"') {
-            $currentVersion = $matches[1]
-            Write-Host "Current version: $currentVersion"
-            
-            # For master branch builds, increment version
-            if ("${{ github.ref }}" -eq "refs/heads/master") {
-                # Extract numeric parts if possible
-                if ($currentVersion -match '(\d+)\.(\d+)\.(\d+)') {
-                    $major = [int]$matches[1]
-                    $minor = [int]$matches[2]
-                    $build = [int]$matches[3] + 1  # Increment build number
-                    $newVersion = "$major.$minor.$build"
-                } else {
-                    # If version doesn't match pattern, use run number
-                    $newVersion = "0.9.${{ github.run_number }}"
-                }
-                
-                # Update constants.h with new version
-                $newContent = $constantsContent -replace '#define VERSION ".+"', "#define VERSION `"$newVersion`""
-                Set-Content -Path $constantsPath -Value $newContent
-                
-                # Set output for later use
-                echo "VERSION=$newVersion" >> $env:GITHUB_OUTPUT
-                Write-Host "Updated version to: $newVersion"
-            } else {
-                echo "VERSION=$currentVersion" >> $env:GITHUB_OUTPUT
-            }
-        } else {
-            echo "VERSION=0.9.${{ github.run_number }}" >> $env:GITHUB_OUTPUT
-            Write-Host "Could not find version in constants.h, using default"
-        }
+      - name: Build with PowerShell
+        shell: pwsh
+        run: ./Build.ps1
 
-    - name: Commit version update
-      if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-      run: |
-        git add capsicain/constants.h
-        git commit -m "Bump version to ${{ steps.version.outputs.VERSION }} [skip ci]" || echo "No changes to commit"
-        git push
-      
-    - name: Install CMake
-      uses: lukka/get-cmake@latest
+      - name: Zip RELEASE folder
+        shell: pwsh
+        run: |
+          $releaseFolder = "capsicain/build/cmake-x64-Release/RELEASE"
+          $zipPath = "capsicain-release.zip"
+          Compress-Archive -Path "$releaseFolder/*" -DestinationPath $zipPath
 
-    - name: Setup Visual Studio Developer Command Prompt
-      uses: ilammy/msvc-dev-cmd@v1
-      with:
-        arch: ${{ matrix.platform }}
-
-    - name: Build with MSVC
-      shell: pwsh
-      run: |
-        ./Build.ps1 -Compiler msvc -Platform ${{ matrix.platform }} -BuildType Release -StaticLinkInterception -Verbose -Version "${{ steps.version.outputs.VERSION }}"
-
-    - name: Package artifacts
-      shell: pwsh
-      run: |
-        $outputDir = "capsicain/build"
-        $packageDir = "capsicain-${{ matrix.artifact_suffix }}-v${{ steps.version.outputs.VERSION }}"
-        
-        # Create package directory
-        New-Item -ItemType Directory -Path $packageDir
-        
-        # Copy executable - first try the expected path based on build configuration
-        if (Test-Path "$outputDir/Release/capsicain.exe") {
-            Copy-Item -Path "$outputDir/Release/capsicain.exe" -Destination $packageDir/
-        } elseif (Test-Path "$outputDir/RELEASE/capsicain.exe") {
-            Copy-Item -Path "$outputDir/RELEASE/capsicain.exe" -Destination $packageDir/
-        } elseif (Test-Path "$outputDir/capsicain.exe") {
-            Copy-Item -Path "$outputDir/capsicain.exe" -Destination $packageDir/
-        } else {
-            # Search for the executable recursively as a fallback
-            Write-Host "Searching for capsicain.exe in output directory..."
-            $exeFiles = Get-ChildItem -Path $outputDir -Recurse -Filter "capsicain.exe" | Where-Object { $_.DirectoryName -like "*Release*" -or $_.DirectoryName -notmatch "(Debug|Release)" }
-            if ($exeFiles.Count -gt 0) {
-                Write-Host "Found executable at: $($exeFiles[0].FullName)"
-                Copy-Item -Path $exeFiles[0].FullName -Destination $packageDir/
-            } else {
-                Write-Error "Could not find capsicain.exe in $outputDir directory"
-                exit 1
-            }
-        }
-        
-        # Copy necessary files (but not interception.dll since we're using static linking)
-        Copy-Item -Path "capsicain/*.ini" -Destination $packageDir/ -ErrorAction SilentlyContinue
-        Copy-Item -Path "*.md" -Destination $packageDir/ -ErrorAction SilentlyContinue
-        
-        # Create zip archive
-        Compress-Archive -Path $packageDir/* -DestinationPath "$packageDir.zip"
-
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: capsicain-${{ matrix.artifact_suffix }}-v${{ steps.version.outputs.VERSION }}
-        path: capsicain-${{ matrix.artifact_suffix }}-v${{ steps.version.outputs.VERSION }}.zip
-        retention-days: 90
-
-    # Upload to release if this is a release event
-    - name: Upload to GitHub Release
-      if: github.event_name == 'release'
-      uses: softprops/action-gh-release@v1
-      with:
-        files: capsicain-${{ matrix.artifact_suffix }}-v${{ steps.version.outputs.VERSION }}.zip
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    # Create automatic release for master branch pushes
-    - name: Create automatic release
-      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-      uses: softprops/action-gh-release@v1
-      with:
-        files: capsicain-${{ matrix.artifact_suffix }}-v${{ steps.version.outputs.VERSION }}.zip
-        name: Automated build v${{ steps.version.outputs.VERSION }}
-        tag_name: v${{ steps.version.outputs.VERSION }}
-        prerelease: true
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Release Asset
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: capsicain-release.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
