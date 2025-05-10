@@ -2,28 +2,6 @@
 
 Capsicain is a powerful keyboard remapping and macro tool for Windows, designed for advanced users and tinkerers. It supports custom layouts, macros, and device-specific remapping.
 
-## Project Links
-
-- [My fork (origin)](https://github.com/eduuh/capsicain)
-- [Dregu fork (otherfolk)](https://github.com/Dregu/capsicain)
-
-## About this Fork
-
-This repository is a fork of the original Capsicain project. I have added two remote origins:
-- The original upstream repository
-- The dregu fork (which contains interesting, though untested, changes)
-
-I am particularly interested in the untested dregu changes and plan to experiment with them.
-
-## Project Goals
-
-- Create a software keyboard solution that can fully replace programmable hardware keyboards
-- Use the built-in laptop keyboard as a fully programmable device
-- Support advanced features such as:
-  - **Single shot keys** (one-shot modifiers and actions)
-  - **Layers** (multiple keymaps, easily switchable)
-  - Macros and device-specific remapping
-
 ## Prerequisites
 
 - **Windows 10/11**
@@ -35,18 +13,14 @@ I am particularly interested in the untested dregu changes and plan to experimen
 
 1. **Open a x64 Native Tools Command Prompt for VS 2019/2022** (or similar for your Visual Studio version).
 2. **Clone the repository** (if you haven't already):
-
    ```sh
    git clone https://github.com/yourusername/capsicain.git
    cd capsicain
    ```
-
 3. **Build using the provided PowerShell script:**
-
    ```powershell
    ./Build.ps1 -BuildType Debug
    ```
-
    - For a Release build, use `-BuildType Release`.
    - The script will configure and build using CMake and MSVC.
 
