@@ -54,21 +54,29 @@ std::string getSymbolForIKStrokeState(unsigned short state);
 bool processOnOffKey(capsicain::services::RuntimeStateService& runtimeState, uint8_t scancode, bool isDownstroke);
 void InterceptionSendCurrentKeystroke();
 void handleConfigSwitch(int scancode);
-// processCommand() replaced by CommandHandler class (see commands/CommandHandler.h)
-void processModifierState();
-bool processMessyKeys();
-void processRewireScancodeToVirtualcode();
-void processCombos();
-void processMapAlphaKeys();
 
-void detectTapping();
+// ============================================================================
+// REMOVED: Unused legacy function declarations (Phase 5 cleanup)
+// ============================================================================
+// The following functions were declaration-only (no implementation) and have
+// been completely replaced by domain classes:
+//
+// - processModifierState() → ModifierTracker class
+// - detectTapping() → TapDetector class
+// - processRewireScancodeToVirtualcode() → KeyMapper class
+// - processCombos() → ComboMatcher class
+// - processMapAlphaKeys() → KeyMapper class
+//
+// Note: processMessyKeys() implementation still exists but is unused
+// ============================================================================
+
 void playKeyEventSequence(std::vector<VKeyEvent> keyEventSequence);
 
 void printOptions();
 
 void sendVKeyEvent(VKeyEvent keyEvent, bool hold = true);
 
-void sendResultingKeyOrSequence();
+// REMOVED: sendResultingKeyOrSequence() - Replaced by KeyProcessingService
 
 VKeyEvent convertIkstroke2VKeyEvent(InterceptionKeyStroke ikStroke);
 

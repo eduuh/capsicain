@@ -763,35 +763,8 @@ int capsicain_main_impl(Application* app)
 ////////////////////////////////////END MAIN//////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
 
-void betaTest() //ESC+B
-{
-    setLED(SC_CAPS, true);
-
-    //test SendInput
-    //{
-    //    // Create a keyboard event structure
-    //    INPUT ip;
-    //    ip.type = INPUT_KEYBOARD;
-    //    ip.ki.time = 0;
-    //    ip.ki.dwExtraInfo = 0;
-
-    //    // Press a unicode "key"
-    //    ip.ki.dwFlags = KEYEVENTF_UNICODE;
-    //    ip.ki.wVk = 0;
-    //    ip.ki.wScan = 0x0E8; // è
-    //    SendInput(1, &ip, sizeof(INPUT));
-
-    //    // Release key
-    //    ip.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
-    //    SendInput(1, &ip, sizeof(INPUT));
-    //}
-
-    ////flip icon
-    //options.debug = !options.debug;
-    //bool res = ShowInTraybar(options.debug, globalState.recordingMacro >= 0, globalState.activeConfig);
-    //if (!res)
-    //    cout << endl << "not flipped";
-}
+// REMOVED: betaTest() - Unused test function
+// Was only called from CommandHandler::handleBetaTest() which is empty
 
 bool processOnOffKey(capsicain::services::RuntimeStateService& runtimeState, uint8_t scancode, bool isDownstroke)
 {
@@ -848,95 +821,9 @@ bool processOnOffKey(capsicain::services::RuntimeStateService& runtimeState, uin
 
 //handle PRINT, SCRLOCK, PAUSE, NUMLOCK, E1, Exit and Break signals
 //return false = drop the key
-bool processMessyKeys()
-{
-    //Alt+Print = ALTPRINT, map to PRINT?
-    if (loopState.vcode == SC_ALTPRINT)
-    {
-        if constexpr (ENABLE_TRACE) cout << endl << SC_ALTPRINT;
-        if (globals.translateMessyKeys)
-            loopState.vcode = SC_PRINT;
-    }
-
-    //Ctrl+NumLock -> pause signal
-    if  (globals.protectConsole
-            && loopState.vcode == SC_NUMLOCK
-            && IS_LCTRL_DOWN
-            && IsCapsicainForegroundWindow()
-        )
-    {
-        if (loopState.isDownstroke)
-            cout << endl << "INFO: Ctrl+NumLock detected, which is the 'Pause console' signal. Discarding it so capsicain does not freeze.";
-        return false;
-    }
-
-    //Ctrl+ScrLock -> exit signal
-    if  (globals.protectConsole 
-            && loopState.vcode == SC_SCRLOCK
-            && IS_LCTRL_DOWN
-            && IsCapsicainForegroundWindow()
-        )
-    {
-        if (loopState.isDownstroke)
-            cout << endl << "INFO: Ctrl+ScrLock detected, which is the 'Exit console' signal. Discarding it so capsicain does not exit.";
-        return false;
-    }
-
-    //Ctrl+Pause produces SC_BREAK = Exit signal
-    if (loopState.vcode == SC_BREAK)
-    {
-        if constexpr (ENABLE_TRACE) cout << endl << "Ctrl+Pause=BREAK";
-        //drop SC_BREAK ?
-        if (globals.protectConsole
-            && IS_LCTRL_DOWN 
-            && IsCapsicainForegroundWindow())
-        {
-            if (loopState.isDownstroke)
-                cout << endl << "INFO: Ctrl+Pause detected, which is the BREAK signal. Discarding it so capsicain does not exit.";
-            return false;
-        }
-
-        //map break to pause
-        if(globals.translateMessyKeys)
-            loopState.vcode = VK_CPS_PAUSE;
-    }
-
-    //translate unmodified pause key sequence to PAUSE (E1 LCTRL NUMLOCK)
-    if (globals.translateMessyKeys)
-    {
-        if (interceptionState.currentIKstroke.state > 3)
-        {
-            if (loopState.vcode == SC_LCTRL)
-            {
-                return false;  //drop the ctrl key
-            }
-            else
-            {
-                cout << endl << endl << "??? Extended escape code not handled. What is this key???"
-                    << "Please open a ticket on github";
-                return false;
-            }
-        }
-
-        if (interceptionState.previousIKstroke1.state > 3)
-        {
-            if (interceptionState.previousIKstroke1.code != SC_LCTRL)
-            {
-                cout << endl << "??? unexpected E1 escape sequence. What kind of key is this?";
-                return false;
-            }
-
-            if (loopState.vcode == SC_NUMLOCK)
-            {
-                IFDEBUG if (loopState.isDownstroke)
-                    cout << endl << ("INFO: Pause key combo (E1 LCTRL NUMLOCK) -> virtual key PAUSE");
-                loopState.vcode = VK_CPS_PAUSE;
-            }
-        }
-    }
-
-    return true;
-}
+// REMOVED: processMessyKeys() - 89 lines
+// Functionality replaced by KeyProcessingService::stage5_MessyKeys()
+// This function used deprecated loopState and globals, was never called
 
 bool testDeviceMask(DEV maskAnd, DEV maskNot, int dev)
 {
@@ -1830,26 +1717,9 @@ void sendCapsicainCodeHandler(VKeyEvent keyEvent)
     }
 }
 
-void sendResultingKeyOrSequence()
-{
-    if (loopState.resultingVKeyEventSequence.size() > 0)
-    {
-        playKeyEventSequence(loopState.resultingVKeyEventSequence);
-    }
-    else
-    {
-        IFDEBUG
-        {
-            if (loopState.scancode != loopState.vcode)
-                cout << "  --  " << PRETTY_VK_LABELS[loopState.vcode] << getSymbolForIKStrokeState(interceptionState.currentIKstroke.state);
-            else
-                cout << "  -->";
-        }
-        {
-            sendVKeyEvent({ loopState.vcode, loopState.isDownstroke });
-        }
-    }
-}
+// REMOVED: sendResultingKeyOrSequence() - 20 lines
+// Functionality replaced by KeyProcessingService result handling in main loop
+// This function used deprecated loopState, was never called
 
 bool runExecutable(Executable &exe)
 {
