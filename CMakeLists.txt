@@ -6,6 +6,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Option to build tests (enabled by default)
+option(BUILD_TESTING "Build unit tests" ON)
+
 # Restrict build to only Visual Studio (MSVC)
 if(NOT MSVC)
     message(FATAL_ERROR "Only Visual Studio (MSVC) is supported for building this project.")
@@ -145,3 +148,27 @@ install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
     DESTINATION .
 )
+
+# ============================================================================
+# Testing Support (Google Test)
+# ============================================================================
+if(BUILD_TESTING)
+    # Enable testing
+    enable_testing()
+
+    # Fetch Google Test
+    include(FetchContent)
+    FetchContent_Declare(
+        googletest
+        URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    )
+    # For Windows: Prevent overriding the parent project's compiler/linker settings
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+
+    # Add tests subdirectory
+    add_subdirectory(tests)
+
+    message(STATUS "Unit tests enabled. Run with 'ctest' or 'ctest --output-on-failure'")
+endif()
