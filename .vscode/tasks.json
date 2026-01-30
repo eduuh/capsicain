@@ -30,6 +30,36 @@
             }
         },
         {
+            "label": "build-tests",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/capsicain/build/cmake-x64-Debug",
+                "--target",
+                "capsicain_tests",
+                "--config",
+                "Debug"
+            ],
+            "group": "build",
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "run-tests",
+            "type": "shell",
+            "command": "ctest",
+            "args": [
+                "-C",
+                "Debug",
+                "--output-on-failure"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/capsicain/build/cmake-x64-Debug"
+            },
+            "group": "test",
+            "dependsOn": "build-tests"
+        },
+        {
             "label": "pre-debug-capsicain",
             "dependsOn": [
                 "kill-capsicain",
