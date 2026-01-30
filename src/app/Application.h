@@ -10,6 +10,7 @@
 #include "services/ConfigurationService.h"
 #include "services/HardwareService.h"
 #include "services/AutoHotkeyService.h"
+#include "services/RuntimeStateService.h"
 
 /**
  * Application - Main application orchestrator
@@ -63,6 +64,7 @@ public:
     capsicain::services::ConfigurationService& getConfigService() { return configService_; }
     capsicain::services::HardwareService& getHardwareService() { return hardwareService_; }
     capsicain::services::AutoHotkeyService& getAHKService() { return ahkService_; }
+    capsicain::services::RuntimeStateService& getRuntimeState() { return runtimeState_; }
     ConsoleUI& getConsoleUI() { return consoleUI_; }
 
 private:
@@ -76,6 +78,7 @@ private:
     capsicain::services::ConfigurationService configService_; // Phase 1-3
     capsicain::services::HardwareService hardwareService_;   // Phase 3
     capsicain::services::AutoHotkeyService ahkService_;      // Phase 4
+    capsicain::services::RuntimeStateService runtimeState_;  // Phase 5
 
     // Core components
     CommandHandler commandHandler_;

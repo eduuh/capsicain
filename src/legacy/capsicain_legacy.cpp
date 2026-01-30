@@ -46,11 +46,12 @@ using std::to_string;
 using std::uppercase;
 namespace chrono = std::chrono;
 
-// Global pointers for legacy compatibility (Phase 1-4 migration)
+// Global pointers for legacy compatibility (Phase 1-5 migration)
 static capsicain::services::UIService* g_uiService = nullptr;
 static capsicain::services::ErrorService* g_errorService = nullptr;
 static capsicain::services::ProfilingService* g_profilingService = nullptr;
 static capsicain::services::AutoHotkeyService* g_ahkService = nullptr;
+static capsicain::services::RuntimeStateService* g_runtimeState = nullptr;
 
 // Adapter to bridge legacy global functions to IModifierQuery interface
 class LegacyModifierQuery : public capsicain::domain::IModifierQuery {
@@ -386,6 +387,7 @@ int capsicain_main_impl(Application* app)
     g_errorService = &errorService;
     g_profilingService = &profilingService;
     g_ahkService = &app->getAHKService();
+    g_runtimeState = &app->getRuntimeState();
 
     interceptionState.interceptionContext = interception_create_context();
 
