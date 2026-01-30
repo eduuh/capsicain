@@ -85,7 +85,10 @@ ProcessResult KeyProcessingService::processKeystroke(const HardwareKeystroke& ke
     // Stage 9: Combo matching
     if (!stage9_ComboMatching()) {
         // Combo matched, send the result sequence
-        result.outputEvents = context_.resultingVKeyEventSequence;
+        // Convert from capsicain::VKeyEvent to ::VKeyEvent
+        for (const auto& evt : context_.resultingVKeyEventSequence) {
+            result.outputEvents.push_back({ evt.vcode, evt.isDownstroke });
+        }
         return result;
     }
 
@@ -102,8 +105,10 @@ ProcessResult KeyProcessingService::processKeystroke(const HardwareKeystroke& ke
         // No sequence, send the mapped key
         result.outputEvents.push_back({ context_.vcode, context_.isDownstroke });
     } else {
-        // Send the sequence
-        result.outputEvents = context_.resultingVKeyEventSequence;
+        // Send the sequence - convert from capsicain::VKeyEvent to ::VKeyEvent
+        for (const auto& evt : context_.resultingVKeyEventSequence) {
+            result.outputEvents.push_back({ evt.vcode, evt.isDownstroke });
+        }
     }
 
     return result;

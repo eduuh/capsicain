@@ -28,6 +28,7 @@
 #include "domain/ModifierTracker.h"
 #include "domain/KeyMapper.h"
 #include "domain/ComboMatcher.h"
+#include "services/KeyProcessingService.h"
 
 // AHK typedefs and struct moved to AutoHotkeyService (Phase 4)
 
@@ -477,12 +478,13 @@ int capsicain_main_impl(Application* app)
     // Initialize command handler for ESC+key sequences (Phase 4: inject configService and uiService)
     CommandHandler commandHandler(configService, uiService);
 
-    // Initialize domain components for refactored key processing
-    capsicain::TapDetector tapDetector;
-    capsicain::ModifierTracker modifierTracker;
-    capsicain::domain::KeyMapper keyMapper;
-    capsicain::domain::ComboMatcher comboMatcher;
-    LegacyModifierQuery modifierQuery;
+    // Initialize KeyProcessingService (Phase 5: replaces domain components + processing logic)
+    capsicain::services::KeyProcessingService keyProcessing(
+        configService,
+        app->getRuntimeState(),
+        app->getHardwareService(),
+        uiService
+    );
 
     //CORE LOOP
     bool exit = false;
@@ -685,262 +687,49 @@ int capsicain_main_impl(Application* app)
                     continue;
                 }
 
-                //consider include/exclude deviceID options
-                if (!globalState.includeDeviceId.empty()
-                    && globalState.deviceIdKeyboard.find(globalState.includeDeviceId) == string::npos)
-                {
-                    IFDEBUG cout << endl << "Ignore board, deviceId is not included with this config";
-                    InterceptionSendCurrentKeystroke();
-                    continue;
-                }
-                if (!globalState.excludeDeviceId.empty()
-                    && globalState.deviceIdKeyboard.find(globalState.excludeDeviceId) != string::npos)
-                {
-                    IFDEBUG cout << endl << "Ignore board, deviceId is excluded in this config";
-                    InterceptionSendCurrentKeystroke();
-                    continue;
-                }
+                // ============================================================
+                // KEY PROCESSING PIPELINE (Phase 5: Using KeyProcessingService)
+                // ============================================================
 
-
-
-                //flip Win+Alt only for Apple keyboards.
-                if (options.flipAltWinOnAppleKeyboards && globalState.deviceIsAppleKeyboard)
-                {
-                    switch (loopState.vcode)
-                    {
-                    case SC_LALT: loopState.vcode = SC_LWIN; break;
-                    case SC_LWIN: loopState.vcode = SC_LALT; break;
-                    case SC_RALT: loopState.vcode = SC_RWIN; break;
-                    case SC_RWIN: loopState.vcode = SC_RALT; break;
-                    }
-
-                    loopState.scancode = loopState.vcode;       //only time where scancode is rewritten. Simplifies tapping and rewiring
-                }
-
-                //Handle Sysrq, ScrLock, Pause, NumLock
-                if (!processMessyKeys())
-                    continue;
-
-                //Tapdance - use refactored TapDetector
-                {
-                    // Convert InterceptionKeyStrokes to KeyEvents for TapDetector
-                    capsicain::KeyEvent currentEvent{
-                        static_cast<int>(interceptionState.currentIKstroke.code),
-                        (interceptionState.currentIKstroke.state & 1) == 0  // isDownstroke (state & 1 == 0 means down)
-                    };
-                    capsicain::KeyEvent prev1Event{
-                        static_cast<int>(interceptionState.previousIKstroke1.code),
-                        (interceptionState.previousIKstroke1.state & 1) == 0
-                    };
-                    capsicain::KeyEvent prev2Event{
-                        static_cast<int>(interceptionState.previousIKstroke2.code),
-                        (interceptionState.previousIKstroke2.state & 1) == 0
-                    };
-
-                    // Detect tap patterns using refactored domain component
-                    capsicain::TapResult tapResult = tapDetector.detect(
-                        currentEvent, prev1Event, prev2Event,
-                        interceptionState.currentIKstroke.state,
-                        interceptionState.previousIKstroke1.state,
-                        interceptionState.previousIKstroke2.state
-                    );
-
-                    // Store results back into loopState (for now, to maintain compatibility)
-                    loopState.tapped = tapResult.tapped;
-                    loopState.tappedSlow = tapResult.tappedSlow;
-                    loopState.tapHoldMake = tapResult.tapHoldMake;
-                    loopState.repeat = tapResult.repeat;
-                }
-                //slow tap breaks tapping
-                if (loopState.tappedSlow)
-                {
-                    modifierState.modifierTapped = 0;
-                    modifierTracker.clearAllTapped();  // Sync to ModifierTracker
-                }
-
-                //hard rewire all REWIREd keys - use refactored KeyMapper
-                {
-                    // Build RewireEntry from legacy rewiremap
-                    capsicain::domain::RewireEntry rewireEntry;
-                    rewireEntry.outKey = allMaps.rewiremap[loopState.vcode][REWIRE_OUT];
-                    rewireEntry.tapKey = allMaps.rewiremap[loopState.scancode][REWIRE_TAP];
-                    rewireEntry.tapHoldKey = allMaps.rewiremap[loopState.scancode][REWIRE_TAPHOLD];
-
-                    // Build RewireContext
-                    capsicain::domain::RewireContext rewireContext;
-                    rewireContext.scancode = loopState.scancode;
-                    rewireContext.vcode = loopState.vcode;
-                    rewireContext.isDownstroke = loopState.isDownstroke;
-                    rewireContext.isTapped = loopState.tapped;
-                    rewireContext.isTapHoldMake = loopState.tapHoldMake;
-                    rewireContext.activeTapHoldKey = modifierState.tapAndHoldKey;
-
-                    // Apply rewire mapping using refactored domain component
-                    capsicain::domain::RewireResult rewireResult = keyMapper.mapRewire(
-                        rewireContext, rewireEntry, &modifierQuery
-                    );
-
-                    // Apply results back to loopState and modifierState
-                    loopState.vcode = rewireResult.outputKey;
-                    loopState.isModifier = rewireResult.isModifier;
-
-                    // Add any generated events to the sequence
-                    for (const auto& evt : rewireResult.eventSequence) {
-                        loopState.resultingVKeyEventSequence.push_back({
-                            static_cast<int>(evt.keyCode),
-                            evt.isDown
-                        });
-                    }
-
-                    // Update modifier state based on rewire result
-                    if (rewireResult.modifiersToClear != 0) {
-                        modifierState.modifierDown &= ~rewireResult.modifiersToClear;
-                    }
-                    if (rewireResult.tappedToClear != 0) {
-                        modifierState.modifierTapped &= ~rewireResult.tappedToClear;
-                        modifierTracker.clearAllTapped();  // Sync: clear all tapped in tracker too
-                    }
-
-                    // Update tap-hold key
-                    if (rewireResult.newTapHoldKey != 0) {
-                        if (rewireResult.newTapHoldKey == -1) {
-                            modifierState.tapAndHoldKey = -1;
-                        } else {
-                            modifierState.tapAndHoldKey = rewireResult.newTapHoldKey;
-                        }
-                        modifierTracker.setTapHoldKey(modifierState.tapAndHoldKey);  // Sync to tracker
-                    }
-
-                    // Check if key should be suppressed
-                    if (rewireResult.shouldNop) {
-                        continue;
-                    }
-                }
-                if (loopState.vcode == SC_NOP)   //rewired to NOP to disable keys
-                {
-                    IFDEBUG cout << " (r2NOP)";
-                    continue;
-                }
-
-                IFDEBUG
-                {
-                    cout << endl;
-                    if constexpr (ENABLE_PROFILING) cout << "(" << setw(5) << dec << timeBetweenTimepointsUS(profiler.timepointPreviousKeyEvent, profiler.timepointLoopStart) / 1000 << " m) ";
-                    consoleUI.printLoopState1Input();
-                }
-
-                //evaluate modifiers - use refactored ModifierTracker
-                {
-                    // Use ModifierTracker to update modifier state
-                    modifierTracker.update(loopState.vcode, loopState.isDownstroke, loopState.tapped);
-
-                    // Sync ModifierTracker state back to global modifierState (for compatibility)
-                    modifierState.modifierDown = modifierTracker.getDownMask();
-                    modifierState.modifierTapped = modifierTracker.getTappedMask();
-                    modifierState.modifierForceDown = modifierTracker.getForcedMask();
-                    modifierState.activeDeadkey = modifierTracker.getDeadkey();
-                    modifierState.tapAndHoldKey = modifierTracker.getTapHoldKey();
-                }
-
-                IFDEBUG consoleUI.printLoopState2Modifier();
-
-                //evaluate modified keys - use refactored ComboMatcher
-                {
-                    // Build ComboMatchContext
-                    capsicain::domain::ComboMatchContext comboContext;
-                    comboContext.currentKey = loopState.vcode;
-                    comboContext.modifiersDown = modifierState.modifierDown;
-                    comboContext.modifiersTapped = modifierState.modifierTapped;
-                    // Convert device ID to bitmask (device IDs are 1-20, bitmask is 1 << (id-1))
-                    comboContext.deviceMask = (interceptionState.interceptionDevice > 0)
-                        ? (1 << (interceptionState.interceptionDevice - 1))
-                        : 0;
-                    comboContext.activeDeadkey = modifierState.activeDeadkey;
-
-                    // Match combos using refactored domain component with cached converted combos
-                    capsicain::domain::ComboMatchResult comboResult;
-
-                    if (loopState.isDownstroke) {
-                        comboResult = comboMatcher.matchDownstroke(
-                            allMaps.convertedCombos[INI_TAG_COMBOS],
-                            allMaps.convertedCombos[INI_TAG_REPEATCOMBOS],
-                            comboContext,
-                            loopState.repeat
-                        );
-                    } else {
-                        comboResult = comboMatcher.matchUpstroke(
-                            allMaps.convertedCombos[INI_TAG_UPCOMBOS],
-                            allMaps.convertedCombos[INI_TAG_TAPCOMBOS],
-                            allMaps.convertedCombos[INI_TAG_SLOWCOMBOS],
-                            comboContext,
-                            loopState.tapped,
-                            loopState.tappedSlow
-                        );
-                    }
-
-                    // Apply combo result
-                    if (comboResult.matched) {
-                        // Convert ComboKeyEvent sequence back to VKeyEvent
-                        loopState.resultingVKeyEventSequence.clear();
-                        for (const auto& evt : comboResult.resultSequence) {
-                            loopState.resultingVKeyEventSequence.push_back({
-                                static_cast<int>(evt.keyCode),
-                                evt.isDown
-                            });
-                        }
-
-                        // Clear tapped state if needed
-                        if (comboResult.shouldClearTapped) {
-                            modifierState.modifierTapped = 0;
-                            modifierTracker.clearAllTapped();
-                        }
-                    }
-
-                    // Clear deadkey for non-modifier keys
-                    if (!loopState.isModifier) {
-                        modifierState.activeDeadkey = 0;
-                    }
-                }
-
-                //alphakeys: basic character key layout - use refactored KeyMapper
-                {
-                    // Build AlphaMapOptions
-                    capsicain::domain::AlphaMapOptions alphaOptions;
-                    alphaOptions.flipZY = options.flipZy;
-                    alphaOptions.ctrlWinBlocksAlphaMapping = options.LControlLWinBlocksAlphaMapping;
-
-                    // Apply alpha mapping using refactored domain component
-                    capsicain::domain::AlphaMapResult alphaResult = keyMapper.mapAlpha(
-                        loopState.vcode,
-                        allMaps.alphamap.data(),
-                        alphaOptions,
-                        loopState.isModifier,
-                        IS_LCTRL_DOWN,
-                        IS_LWIN_DOWN
-                    );
-
-                    // Update vcode with mapped result
-                    loopState.vcode = alphaResult.mappedKey;
-                }
-
-                //break tapped state?
-                if (!isModifier(loopState.vcode))
-                {
-                    modifierState.modifierTapped = 0;
-                    modifierTracker.clearAllTapped();  // Sync to ModifierTracker
-                }
+                // Build HardwareKeystroke for KeyProcessingService
+                capsicain::services::HardwareKeystroke hwKeystroke;
+                hwKeystroke.deviceId = interceptionState.interceptionDevice;
+                hwKeystroke.scancode = static_cast<uint8_t>(interceptionState.currentIKstroke.code);
+                hwKeystroke.state = interceptionState.currentIKstroke.state;
+                hwKeystroke.information = interceptionState.currentIKstroke.information;
 
                 if constexpr (ENABLE_PROFILING)
                 {
-                unsigned long mappingtime = profiler.stopwatchRestart();
-                profiler.totalMappingTimeUS += mappingtime;
-                profiler.countOutgoing++;
-                if (mappingtime > profiler.worstMappingTimeUS)
-                    profiler.worstMappingTimeUS = mappingtime;
-                IFDEBUG consoleUI.printLoopStateMappingTime(mappingtime);
+                    profiler.stopwatchRestart();
                 }
 
-                sendResultingKeyOrSequence();
+                // Process keystroke through the pipeline
+                capsicain::services::ProcessResult result = keyProcessing.processKeystroke(hwKeystroke);
+
+                if constexpr (ENABLE_PROFILING)
+                {
+                    unsigned long mappingtime = profiler.stopwatchRestart();
+                    profiler.totalMappingTimeUS += mappingtime;
+                    profiler.countOutgoing++;
+                    if (mappingtime > profiler.worstMappingTimeUS)
+                        profiler.worstMappingTimeUS = mappingtime;
+                    IFDEBUG consoleUI.printLoopStateMappingTime(mappingtime);
+                }
+
+                // Handle the result
+                if (result.shouldForward) {
+                    // Forward original key unchanged
+                    InterceptionSendCurrentKeystroke();
+                } else if (result.consumed) {
+                    // Key was consumed (NOP), do nothing
+                    IFDEBUG cout << " (consumed)";
+                } else if (!result.outputEvents.empty()) {
+                    // Send the output sequence
+                    playKeyEventSequence(result.outputEvents);
+                } else {
+                    // Fallback: shouldn't happen but forward if no output
+                    InterceptionSendCurrentKeystroke();
+                }
                 if constexpr (ENABLE_PROFILING)
                 {
                 unsigned long sendingtime = profiler.stopwatchReadUS();

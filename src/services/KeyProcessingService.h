@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include "legacy/configUtils.h"  // For legacy ::VKeyEvent
 #include "core/Types.h"
 #include "core/KeyEvent.h"
 #include "domain/TapDetector.h"
@@ -27,7 +28,7 @@ namespace services {
 struct ProcessResult {
     bool shouldForward = false;        ///< Forward original key to OS
     bool consumed = false;             ///< Key was consumed (no output)
-    std::vector<VKeyEvent> outputEvents;  ///< Replacement key events to send
+    std::vector<::VKeyEvent> outputEvents;  ///< Replacement key events to send (legacy VKeyEvent)
 };
 
 /**
