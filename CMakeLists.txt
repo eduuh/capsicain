@@ -68,6 +68,7 @@ set(CAPSICAIN_SOURCES
     src/services/HardwareService.cpp
     src/services/AutoHotkeyService.cpp
     src/services/RuntimeStateService.cpp
+    src/services/KeyProcessingService.cpp
 )
 
 set(CAPSICAIN_HEADERS
@@ -99,6 +100,7 @@ set(CAPSICAIN_HEADERS
     src/services/HardwareService.h
     src/services/AutoHotkeyService.h
     src/services/RuntimeStateService.h
+    src/services/KeyProcessingService.h
 
     # Core headers
     src/core/KeyEvent.h
