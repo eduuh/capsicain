@@ -63,8 +63,10 @@ using std::to_string;
 using std::uppercase;
 namespace chrono = std::chrono;
 
-// Global ConsoleUI pointer for legacy compatibility
+// Global pointers for legacy compatibility (Phase 1 migration)
 static ConsoleUI* g_consoleUI = nullptr;
+static capsicain::services::ErrorService* g_errorService = nullptr;
+static capsicain::services::ProfilingService* g_profilingService = nullptr;
 
 // Adapter to bridge legacy global functions to IModifierQuery interface
 class LegacyModifierQuery : public capsicain::domain::IModifierQuery {
@@ -168,13 +170,13 @@ struct InterceptionState
 {
     int newKeyboardCounter = 0;
     InterceptionContext interceptionContext = nullptr;
-    InterceptionDevice interceptionDevice = nullptr;
-    InterceptionDevice previousInterceptionDevice = nullptr;
+    InterceptionDevice interceptionDevice = 0;
+    InterceptionDevice previousInterceptionDevice = 0;
     InterceptionKeyStroke currentIKstroke = { SC_NOP, 0 };
     InterceptionKeyStroke previousIKstroke1 = { SC_NOP, 0 }; //remember history
     InterceptionKeyStroke previousIKstroke2 = { SC_NOP, 0 };
-    InterceptionDevice lastMouse = nullptr;
-    InterceptionDevice lastKeyboard = nullptr;
+    InterceptionDevice lastMouse = 0;
+    InterceptionDevice lastKeyboard = 0;
 } interceptionState;
 
 struct GlobalState
@@ -262,11 +264,17 @@ struct ProfilingTimer
 } profiler;
 static const struct ProfilingTimer defaultProfiler;
 
-string errorLog = "";
+string errorLog = "";  // Legacy global - will be removed in later phase
 void error(const string& txt)
 {
-    cout << endl << "ERROR: " << txt << endl;
-    errorLog += "\r\n" + txt;
+    // Use ErrorService if available, otherwise fall back to legacy behavior
+    if (g_errorService) {
+        g_errorService->logError(txt);
+        errorLog = g_errorService->getErrorLog();  // Keep legacy global in sync
+    } else {
+        cout << endl << "ERROR: " << txt << endl;
+        errorLog += "\r\n" + txt;
+    }
 }
 
 string getTimestamp()
@@ -409,8 +417,11 @@ int mousetoKey(InterceptionMouseStroke &mstroke, InterceptionKeyStroke *kstroke)
     return n;
 }
 
+// Forward declare Application class
+class Application;
+
 // Main implementation - extracted from main() to allow Application wrapper
-int capsicain_main_impl()
+int capsicain_main_impl(Application* app)
 {
     if (!initConsoleWindow())
     {
@@ -419,23 +430,39 @@ int capsicain_main_impl()
         return 0;
     }
 
-    // Initialize console UI early for startup messages
-    ConsoleUI consoleUI;
+    // Get services from Application (services already initialized in Application::run())
+    auto& uiService = app->getUIService();
+    auto& errorService = app->getErrorService();
+    auto& profilingService = app->getProfilingService();
+    auto& configService = app->getConfigService();
+    ConsoleUI& consoleUI = app->getConsoleUI();
+
+    // Set legacy globals for backwards compatibility
     g_consoleUI = &consoleUI;
+    g_errorService = &errorService;
+    g_profilingService = &profilingService;
 
     interceptionState.interceptionContext = interception_create_context();
 
-    if constexpr (ENABLE_PROFILING) profiler.stopwatchRestart();
+    if constexpr (ENABLE_PROFILING) profilingService.stopwatchRestart();
 
     consoleUI.printHeader();
 
-    defineAllPrettyVKLabels(PRETTY_VK_LABELS.data());
-
-    if (!readSanitizeIniFile(sanitizedIniContent))
+    // UIService and ConfigService already initialized in Application::run()
+    // Just verify INI was loaded
+    if (!configService.isLoaded())
     {
         std::cout << endl << "No capsicain.ini - exiting..." << endl;
         Sleep(5000);
         return 0;
+    }
+
+    // Populate legacy globals from services (temporary during Phase 1 migration)
+    // Phase 1: Keep globals but populate from services
+    sanitizedIniContent = configService.getIniContent();
+    // Copy labels from service to global array
+    for (int i = 0; i < MAX_VCODES; ++i) {
+        PRETTY_VK_LABELS[i] = uiService.getLabel(i);
     }
 
     parseIniGlobals();
@@ -563,8 +590,8 @@ int capsicain_main_impl()
                 IFDEBUG if(globalState.activeConfig == 0) cout << ". ";
 
                 //ignore secondary keyboard?
-                if (options.processOnlyFirstKeyboard 
-                    && (interceptionState.previousInterceptionDevice != nullptr)
+                if (options.processOnlyFirstKeyboard
+                    && (interceptionState.previousInterceptionDevice != 0)
                     && (interceptionState.previousInterceptionDevice != interceptionState.interceptionDevice))
                 {
                     IFDEBUG cout << endl << "Ignore 2nd board (" << interceptionState.interceptionDevice << ") scancode: " << interceptionState.currentIKstroke.code;
@@ -573,7 +600,7 @@ int capsicain_main_impl()
                 }
 
                 //device id changed / check for Apple Keyboard
-                if (interceptionState.previousInterceptionDevice == nullptr    //startup
+                if (interceptionState.previousInterceptionDevice == 0    //startup
                     || interceptionState.previousInterceptionDevice != interceptionState.interceptionDevice)  //keyboard changed
                 {
                     //getHardwareId();

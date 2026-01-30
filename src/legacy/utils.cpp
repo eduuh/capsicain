@@ -62,7 +62,7 @@ DWORD FindProcessId(const string& processName)
     PROCESSENTRY32 processInfo;
     processInfo.dwSize = sizeof(processInfo);
 
-    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, nullptr);
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (processesSnapshot == INVALID_HANDLE_VALUE)
         return 0;
 

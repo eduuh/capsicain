@@ -60,6 +60,11 @@ set(CAPSICAIN_SOURCES
     src/app/Application.cpp
     src/commands/CommandHandler.cpp
     src/ui/ConsoleUI.cpp
+
+    # Services
+    src/services/UIService.cpp
+    src/services/ErrorService.cpp
+    src/services/ConfigurationService.cpp
 )
 
 set(CAPSICAIN_HEADERS
@@ -82,6 +87,12 @@ set(CAPSICAIN_HEADERS
     src/app/Application.h
     src/commands/CommandHandler.h
     src/ui/ConsoleUI.h
+
+    # Services headers
+    src/services/UIService.h
+    src/services/ErrorService.h
+    src/services/ProfilingService.h
+    src/services/ConfigurationService.h
 
     # Core headers
     src/core/KeyEvent.h

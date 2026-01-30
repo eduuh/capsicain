@@ -4,11 +4,16 @@
 #include "commands/CommandHandler.h"
 #include "ui/ConsoleUI.h"
 #include "platform/interception.h"
+#include "services/UIService.h"
+#include "services/ErrorService.h"
+#include "services/ProfilingService.h"
+#include "services/ConfigurationService.h"
 
 /**
  * Application - Main application orchestrator
  *
  * Owns the main loop and coordinates all major components:
+ * - Services (UI, Error, Profiling, Configuration)
  * - CommandHandler for ESC+key commands
  * - ConsoleUI for output
  * - Interception for input
@@ -50,10 +55,25 @@ public:
      */
     void shutdown();
 
+    // Service accessors (for legacy code migration)
+    capsicain::services::UIService& getUIService() { return uiService_; }
+    capsicain::services::ErrorService& getErrorService() { return errorService_; }
+    capsicain::services::ProfilingService& getProfilingService() { return profilingService_; }
+    capsicain::services::ConfigurationService& getConfigService() { return configService_; }
+    ConsoleUI& getConsoleUI() { return consoleUI_; }
+
 private:
-    // Core components (owned by Application)
-    CommandHandler commandHandler_;
+    // UI components
     ConsoleUI consoleUI_;
+
+    // Services (Phase 1: Utility services)
+    capsicain::services::UIService uiService_;
+    capsicain::services::ErrorService errorService_;
+    capsicain::services::ProfilingService profilingService_;
+    capsicain::services::ConfigurationService configService_;
+
+    // Core components
+    CommandHandler commandHandler_;
 
     // Interception context
     InterceptionContext interceptionContext_;
