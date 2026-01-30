@@ -2,7 +2,7 @@
 /**
  * @file Types.h
  * @brief Common type definitions for capsicain
- * 
+ *
  * Centralizes type aliases and constants used throughout the codebase.
  */
 
@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
+#include "platform/constants.h"
 
 namespace capsicain {
 
@@ -22,21 +24,8 @@ using DeviceMask = uint32_t;
 // Virtual key code type
 using VKey = int;
 
-// Constants
-constexpr int MAX_VCODES = 0x140;
-constexpr int MAX_MACRO_LENGTH = 200;
-constexpr int MAX_NUM_MACROS = 21;
-constexpr int DISABLED_CONFIG = 0;
-constexpr int DEFAULT_CONFIG = 1;
-constexpr int DEFAULT_KEY_DELAY_MS = 5;
-
-// Rewire map dimensions
-constexpr int REWIRE_COLS = 4;
-constexpr int REWIRE_ROWS = MAX_VCODES;
-constexpr int REWIRE_OUT = 0;
-constexpr int REWIRE_TAP = 1;
-constexpr int REWIRE_DOUBLETAP = 2;
-constexpr int REWIRE_TAPHOLD = 3;
+// Note: Constants like MAX_VCODES, REWIRE_COLS, etc. are defined in platform/constants.h as #defines
+// to maintain compatibility with legacy code.
 
 /**
  * @brief Executable configuration for launching programs
@@ -57,7 +46,7 @@ struct Executable {
  */
 struct RuntimeOptions {
     bool debug = false;
-    int delayForKeySequenceMS = DEFAULT_KEY_DELAY_MS;
+    int delayForKeySequenceMS = DEFAULT_DELAY_FOR_KEY_SEQUENCE_MS;
     bool flipZY = false;
     bool flipAltWinOnAppleKeyboards = false;
     bool lControlLWinBlocksAlphaMapping = false;
@@ -73,13 +62,15 @@ struct RuntimeOptions {
  */
 struct GlobalSettings {
     std::string iniVersion = "unnamed version";
-    int activeConfigOnStartup = DEFAULT_CONFIG;
+    int activeConfigOnStartup = DEFAULT_ACTIVE_CONFIG;
     bool startMinimized = false;
     bool startInTraybar = false;
     bool startAHK = false;
     int capsicainOnOffKey = -1;
     bool protectConsole = true;
     bool translateMessyKeys = true;
+    std::set<int> disableEscKey;
+    std::set<int> forwardEscKey;
 };
 
 } // namespace capsicain

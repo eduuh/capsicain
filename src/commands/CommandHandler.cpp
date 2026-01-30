@@ -7,6 +7,7 @@
 #include "platform/constants.h"
 #include "legacy/traybar.h"
 #include "legacy/utils.h"
+#include "services/ConfigurationService.h"
 
 #include <iostream>
 #include <string>
@@ -65,7 +66,8 @@ extern std::string errorLog;
 // Forward declarations of external functions
 extern void reset();
 extern void resetCapsNumScrollLock();
-extern void reload();
+namespace capsicain { namespace services { class ConfigurationService; } }
+extern void reload(capsicain::services::ConfigurationService& configService);
 extern void loadAHK();
 extern void unloadAHK();
 extern std::vector<std::string> assembleConfig(int config);
@@ -77,7 +79,8 @@ extern void sendVKeyEvent(VKeyEvent keyEvent, bool hold);
 extern std::map<uint8_t, Device>* getHardwareId(bool refresh);
 extern void handleConfigSwitch(int scancode);
 
-CommandHandler::CommandHandler()
+CommandHandler::CommandHandler(capsicain::services::ConfigurationService& configService)
+    : configService_(configService)
 {
     // Initialize command dispatch map
     // Note: We're not using the map yet, but setting up the infrastructure
@@ -152,7 +155,7 @@ bool CommandHandler::handle(int scancode)
 
     case SC_D:
         handleDebugToggle();
-        popupConsole = options.debug;
+        popupConsole = configService_.getOptionsMutable().debug;
         break;
 
     case SC_H:
@@ -260,8 +263,8 @@ void CommandHandler::handleQuit()
 
 void CommandHandler::handleAppleKeyboardToggle()
 {
-    options.flipAltWinOnAppleKeyboards = !options.flipAltWinOnAppleKeyboards;
-    cout << "Flip ALT<>WIN for Apple boards: " << (options.flipAltWinOnAppleKeyboards ? "ON" : "OFF") << endl;
+    configService_.getOptionsMutable().flipAltWinOnAppleKeyboards = !configService_.getOptionsMutable().flipAltWinOnAppleKeyboards;
+    cout << "Flip ALT<>WIN for Apple boards: " << (configService_.getOptionsMutable().flipAltWinOnAppleKeyboards ? "ON" : "OFF") << endl;
 }
 
 void CommandHandler::handleErrorLog()
@@ -273,7 +276,7 @@ void CommandHandler::handleReload()
 {
     cout << "RELOAD INI";
     getHardwareId();
-    reload();
+    reload(configService_);
     cout << endl << (globalState.deviceIsAppleKeyboard ? "APPLE keyboard (flipping Win<>Alt)" : "PC keyboard");
 }
 
@@ -304,8 +307,8 @@ void CommandHandler::handleStatus()
 
 void CommandHandler::handleDebugToggle()
 {
-    options.debug = !options.debug;
-    cout << "DEBUG mode: " << (options.debug ? "ON" : "OFF");
+    configService_.getOptionsMutable().debug = !configService_.getOptionsMutable().debug;
+    cout << "DEBUG mode: " << (configService_.getOptionsMutable().debug ? "ON" : "OFF");
 }
 
 void CommandHandler::handleHelp()
@@ -369,8 +372,8 @@ void CommandHandler::handleMacroCopyToClipboard()
 
 void CommandHandler::handleFlipZyToggle()
 {
-    options.flipZy = !options.flipZy;
-    cout << "Flip Z<>Y mode: " << (options.flipZy ? "ON" : "OFF");
+    configService_.getOptionsMutable().flipZY = !configService_.getOptionsMutable().flipZY;
+    cout << "Flip Z<>Y mode: " << (configService_.getOptionsMutable().flipZY ? "ON" : "OFF");
 }
 
 void CommandHandler::handleShowKeyLabels()
@@ -382,24 +385,24 @@ void CommandHandler::handleShowKeyLabels()
 
 void CommandHandler::handleDecreaseDelay()
 {
-    if (options.delayForKeySequenceMS >= 1)
-        options.delayForKeySequenceMS -= 1;
-    cout << "delay between characters in key sequences (ms): " << dec << options.delayForKeySequenceMS;
+    if (configService_.getOptionsMutable().delayForKeySequenceMS >= 1)
+        configService_.getOptionsMutable().delayForKeySequenceMS -= 1;
+    cout << "delay between characters in key sequences (ms): " << dec << configService_.getOptionsMutable().delayForKeySequenceMS;
 }
 
 void CommandHandler::handleIncreaseDelay()
 {
-    if (options.delayForKeySequenceMS <= 100)
-        options.delayForKeySequenceMS += 1;
-    cout << "delay between characters in key sequences (ms): " << dec << options.delayForKeySequenceMS;
+    if (configService_.getOptionsMutable().delayForKeySequenceMS <= 100)
+        configService_.getOptionsMutable().delayForKeySequenceMS += 1;
+    cout << "delay between characters in key sequences (ms): " << dec << configService_.getOptionsMutable().delayForKeySequenceMS;
 }
 
 void CommandHandler::handleMouseToggle()
 {
-    options.enableMouse ^= true;
+    configService_.getOptionsMutable().enableMouse ^= true;
     if (interceptionState.interceptionContext)
     {
-        if (options.enableMouse)
+        if (configService_.getOptionsMutable().enableMouse)
         {
             interception_set_filter(interceptionState.interceptionContext, interception_is_mouse,
                 INTERCEPTION_FILTER_MOUSE_ALL & ~INTERCEPTION_FILTER_MOUSE_MOVE);

@@ -465,7 +465,34 @@ int capsicain_main_impl(Application* app)
         PRETTY_VK_LABELS[i] = uiService.getLabel(i);
     }
 
-    parseIniGlobals();
+    // Phase 2: Parse INI into configService, then copy to legacy globals
+    parseIniGlobals(configService);
+
+    // Copy GlobalSettings to legacy globals struct
+    const auto& settings = configService.getGlobalSettings();
+    globals.iniVersion = settings.iniVersion;
+    globals.activeConfigOnStartup = settings.activeConfigOnStartup;
+    globals.startMinimized = settings.startMinimized;
+    globals.startInTraybar = settings.startInTraybar;
+    globals.startAHK = settings.startAHK;
+    globals.capsicainOnOffKey = settings.capsicainOnOffKey;
+    globals.protectConsole = settings.protectConsole;
+    globals.translateMessyKeys = settings.translateMessyKeys;
+    globals.disableEscKey = settings.disableEscKey;
+    globals.forwardEscKey = settings.forwardEscKey;
+
+    // Copy RuntimeOptions to legacy options struct
+    const auto& opts = configService.getOptions();
+    options.debug = opts.debug;
+    options.delayForKeySequenceMS = opts.delayForKeySequenceMS;
+    options.flipZy = opts.flipZY;  // Note: different spelling
+    options.flipAltWinOnAppleKeyboards = opts.flipAltWinOnAppleKeyboards;
+    options.LControlLWinBlocksAlphaMapping = opts.lControlLWinBlocksAlphaMapping;  // Note: different casing
+    options.processOnlyFirstKeyboard = opts.processOnlyFirstKeyboard;
+    options.holdRepeatsAllKeys = opts.holdRepeatsAllKeys;
+    options.disableAHKDelay = opts.disableAHKDelay;
+    options.defaultFunction = opts.defaultFunction;
+    options.enableMouse = opts.enableMouse;
 
     if (globals.startAHK)
         loadAHK();
@@ -500,8 +527,8 @@ int capsicain_main_impl(Application* app)
     InterceptionDevice device;
     InterceptionStroke stroke;
 
-    // Initialize command handler for ESC+key sequences
-    CommandHandler commandHandler;
+    // Initialize command handler for ESC+key sequences (Phase 2: inject configService)
+    CommandHandler commandHandler(configService);
 
     // Initialize domain components for refactored key processing
     capsicain::TapDetector tapDetector;
@@ -1278,15 +1305,17 @@ bool initConsoleWindow()
 
 
 //reads all GLOBALs from ini, no matter where they are
-void parseIniGlobals()
+void parseIniGlobals(capsicain::services::ConfigurationService& configService)
 {
     vector<string> sectLines = getTaggedLinesFromIni(INI_TAG_GLOBAL, sanitizedIniContent);
+    auto& settings = configService.getGlobalSettingsMutable();
+    auto& opts = configService.getOptionsMutable();
 
     for (string line : sectLines)
     {
         string token = stringCopyFirstToken(line);
         if (token == "debugonstartup")
-            options.debug = true;
+            opts.debug = true;
         else if (token == "capsicainonoffkey")
         {
             string s = stringGetRestBehindFirstToken(line);
@@ -1296,20 +1325,20 @@ void parseIniGlobals()
             else if (key > 255 && key != VK_CPS_PAUSE)
                 cout << "ERROR: virtual key makes no sense: " << line << endl;
             else
-                globals.capsicainOnOffKey = key;
+                settings.capsicainOnOffKey = key;
         }
         else if (token == "iniversion")
-            globals.iniVersion = stringGetRestBehindFirstToken(line);
+            settings.iniVersion = stringGetRestBehindFirstToken(line);
         else if (token == "startminimized")
-            globals.startMinimized = true;
+            settings.startMinimized = true;
         else if (token == "startintraybar")
-            globals.startInTraybar = true;
+            settings.startInTraybar = true;
         else if (token == "startahk")
-            globals.startAHK = true;
+            settings.startAHK = true;
         else if (token == "donttranslatemessykeys")
-            globals.translateMessyKeys = false;
+            settings.translateMessyKeys = false;
         else if (token == "dontprotectconsole")
-            globals.protectConsole = false;
+            settings.protectConsole = false;
         else if ((token == "activeconfigonstartup") || (token == "activelayeronstartup"))
             cout << endl;
         else if (token == "disableesckey")
@@ -1318,7 +1347,7 @@ void parseIniGlobals()
             for (auto s : keys)
             {
                 int key = getVcode(s, PRETTY_VK_LABELS.data());
-                globals.disableEscKey.insert(key);
+                settings.disableEscKey.insert(key);
             }
         }
         else if (token == "forwardesckey")
@@ -1327,33 +1356,36 @@ void parseIniGlobals()
             for (auto s : keys)
             {
                 int key = getVcode(s, PRETTY_VK_LABELS.data());
-                globals.forwardEscKey.insert(key);
+                settings.forwardEscKey.insert(key);
             }
         }
         else
             cout << endl << "WARNING: unknown GLOBAL " << token;
     }
 
-    if (!getIntValueForTaggedKey(INI_TAG_GLOBAL, "ActiveConfigOnStartup", globals.activeConfigOnStartup, sanitizedIniContent))
+    if (!getIntValueForTaggedKey(INI_TAG_GLOBAL, "ActiveConfigOnStartup", settings.activeConfigOnStartup, sanitizedIniContent))
     {
         //backward compat for "layer"
-        if (getIntValueForTaggedKey(INI_TAG_GLOBAL, "ActiveLayerOnStartup", globals.activeConfigOnStartup, sanitizedIniContent))
+        if (getIntValueForTaggedKey(INI_TAG_GLOBAL, "ActiveLayerOnStartup", settings.activeConfigOnStartup, sanitizedIniContent))
         {
             cout << endl << "INFO: Use 'GLOBAL activeConfigOnStartup' instead of 'GLOBAL activeLayerOnStartup'";
         }
         else
         {
-            cout << endl << "No ini setting for 'GLOBAL activeConfigOnStartup'. Setting default config " << globals.activeConfigOnStartup;
+            cout << endl << "No ini setting for 'GLOBAL activeConfigOnStartup'. Setting default config " << settings.activeConfigOnStartup;
         }
     }
 }
 
 // Parses the OPTIONS in the given section.
 // Returns false if section does not exist.
-bool parseIniOptions(std::vector<std::string> assembledIni)
+// Phase 2: Updated to write to ConfigurationService
+bool parseIniOptions(std::vector<std::string> assembledIni, capsicain::services::ConfigurationService* configService = nullptr)
 {
     vector<string> sectLines = getTaggedLinesFromIni(INI_TAG_OPTIONS, assembledIni);
     globalState.activeConfigName = INI_TAG_OPTIONS+" configName is undefined";
+
+    capsicain::RuntimeOptions* opts = configService ? &configService->getOptionsMutable() : nullptr;
 
     for (string line : sectLines)
     {
@@ -1369,10 +1401,12 @@ bool parseIniOptions(std::vector<std::string> assembledIni)
         }
         else if (token == "debug")
         {
+            if (opts) opts->debug = true;
             options.debug = true;
         }
         else if (token == "flipzy")
         {
+            if (opts) opts->flipZY = true;
             options.flipZy = true;
         }
         else if (token == "altalttoalt")
@@ -1381,14 +1415,17 @@ bool parseIniOptions(std::vector<std::string> assembledIni)
         }
         else if (token == "flipaltwinonapplekeyboards")
         {
+            if (opts) opts->flipAltWinOnAppleKeyboards = true;
             options.flipAltWinOnAppleKeyboards = true;
         }
         else if (token == "lcontrollwinblocksalphamapping")
         {
+            if (opts) opts->lControlLWinBlocksAlphaMapping = true;
             options.LControlLWinBlocksAlphaMapping = true;
         }
         else if (token == "processonlyfirstkeyboard")
         {
+            if (opts) opts->processOnlyFirstKeyboard = true;
             options.processOnlyFirstKeyboard = true;
         }
         else if (token == "includedeviceid")
@@ -1403,6 +1440,7 @@ bool parseIniOptions(std::vector<std::string> assembledIni)
         }
         else if (token == "delayforkeysequencems")
         {
+            if (opts) getIntValueForKey("delayForKeySequenceMS", opts->delayForKeySequenceMS, sectLines);
             getIntValueForKey("delayForKeySequenceMS", options.delayForKeySequenceMS, sectLines);
         }
         else if (token == "shiftshifttoshiftlock")
@@ -1414,18 +1452,22 @@ bool parseIniOptions(std::vector<std::string> assembledIni)
         }
         else if (token == "holdrepeatsallkeys")
         {
+            if (opts) opts->holdRepeatsAllKeys = true;
             options.holdRepeatsAllKeys = true;
         }
         else if (token == "disableahkdelay")
         {
+            if (opts) opts->disableAHKDelay = true;
             options.disableAHKDelay = true;
         }
         else if (token == "defaultfunction")
         {
+            if (opts) opts->defaultFunction = stringGetRestBehindFirstToken(line);
             options.defaultFunction = stringGetRestBehindFirstToken(line);
         }
         else if (token == "enablemouse")
         {
+            if (opts) opts->enableMouse = true;
             options.enableMouse = true;
         }
         else
@@ -1857,7 +1899,7 @@ void reset()
 }
 
 //Reset and reload the ini from scratch
-void reload()
+void reload(capsicain::services::ConfigurationService& configService)
 {
     initializeAllMaps();
     globals = defaultGlobals;
@@ -1865,7 +1907,33 @@ void reload()
 
     readSanitizeIniFile(sanitizedIniContent);
 
-    parseIniGlobals();
+    parseIniGlobals(configService);
+
+    // Copy GlobalSettings to legacy globals struct
+    const auto& settings = configService.getGlobalSettings();
+    globals.iniVersion = settings.iniVersion;
+    globals.activeConfigOnStartup = settings.activeConfigOnStartup;
+    globals.startMinimized = settings.startMinimized;
+    globals.startInTraybar = settings.startInTraybar;
+    globals.startAHK = settings.startAHK;
+    globals.capsicainOnOffKey = settings.capsicainOnOffKey;
+    globals.protectConsole = settings.protectConsole;
+    globals.translateMessyKeys = settings.translateMessyKeys;
+    globals.disableEscKey = settings.disableEscKey;
+    globals.forwardEscKey = settings.forwardEscKey;
+
+    // Copy RuntimeOptions to legacy options struct
+    const auto& opts = configService.getOptions();
+    options.debug = opts.debug;
+    options.delayForKeySequenceMS = opts.delayForKeySequenceMS;
+    options.flipZy = opts.flipZY;
+    options.flipAltWinOnAppleKeyboards = opts.flipAltWinOnAppleKeyboards;
+    options.LControlLWinBlocksAlphaMapping = opts.lControlLWinBlocksAlphaMapping;
+    options.processOnlyFirstKeyboard = opts.processOnlyFirstKeyboard;
+    options.holdRepeatsAllKeys = opts.holdRepeatsAllKeys;
+    options.disableAHKDelay = opts.disableAHKDelay;
+    options.defaultFunction = opts.defaultFunction;
+    options.enableMouse = opts.enableMouse;
 
     if (globals.startAHK)
         loadAHK();

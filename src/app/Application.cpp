@@ -9,6 +9,7 @@ extern int capsicain_main_impl(Application* app);
 
 Application::Application()
     : uiService_(consoleUI_)
+    , commandHandler_(configService_)
     , interceptionContext_(nullptr)
     , exitRequested_(false)
 {

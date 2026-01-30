@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include "core/Types.h"
 
 namespace capsicain {
 namespace services {
@@ -10,17 +11,21 @@ namespace services {
  * @brief ConfigurationService encapsulates configuration data and INI file handling
  *
  * Phase 1: Manages sanitized INI content
- * Future phases will add: GlobalSettings, RuntimeOptions, MappingData
+ * Phase 2: Manages GlobalSettings and RuntimeOptions
+ * Future phases will add: MappingData
  *
  * Responsibilities:
  * - Load and parse capsicain.ini file
  * - Provide access to sanitized INI content
  * - Extract sections and tagged lines
+ * - Manage global settings (read-only after INI load)
+ * - Manage runtime options (mutable via ESC commands)
  *
  * Usage:
  *   ConfigurationService config;
  *   if (config.loadIniFile()) {
- *       auto section = config.getSection("Config0");
+ *       auto& settings = config.getGlobalSettings();
+ *       config.getOptions().debug = true;  // Toggle option
  *   }
  */
 class ConfigurationService {
@@ -86,8 +91,44 @@ public:
         sanitizedIniContent_.clear();
     }
 
+    // Phase 2: GlobalSettings and RuntimeOptions accessors
+
+    /**
+     * @brief Get global settings (read-only)
+     * @return Const reference to global settings
+     */
+    [[nodiscard]] const capsicain::GlobalSettings& getGlobalSettings() const noexcept {
+        return globalSettings_;
+    }
+
+    /**
+     * @brief Get mutable global settings (for initialization)
+     * @return Reference to global settings
+     */
+    [[nodiscard]] capsicain::GlobalSettings& getGlobalSettingsMutable() noexcept {
+        return globalSettings_;
+    }
+
+    /**
+     * @brief Get runtime options (const)
+     * @return Const reference to runtime options
+     */
+    [[nodiscard]] const capsicain::RuntimeOptions& getOptions() const noexcept {
+        return options_;
+    }
+
+    /**
+     * @brief Get mutable runtime options (for ESC command toggling)
+     * @return Reference to runtime options
+     */
+    [[nodiscard]] capsicain::RuntimeOptions& getOptionsMutable() noexcept {
+        return options_;
+    }
+
 private:
     std::vector<std::string> sanitizedIniContent_;  // Replaces global sanitizedIniContent
+    capsicain::GlobalSettings globalSettings_;      // Replaces global globals
+    capsicain::RuntimeOptions options_;              // Replaces global options
 };
 
 } // namespace services

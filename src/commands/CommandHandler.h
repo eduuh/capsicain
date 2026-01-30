@@ -4,6 +4,9 @@
 #include <map>
 #include <string>
 
+// Forward declarations
+namespace capsicain { namespace services { class ConfigurationService; } }
+
 /**
  * CommandHandler - Handles ESC+key command sequences
  *
@@ -11,11 +14,16 @@
  * Each command (ESC+X, ESC+D, ESC+R, etc.) has its own handler method.
  *
  * Uses Command Pattern with function dispatch for O(1) lookup.
+ * Depends on ConfigurationService for toggling runtime options.
  */
 class CommandHandler
 {
 public:
-    CommandHandler();
+    /**
+     * @brief Construct CommandHandler with configuration service dependency
+     * @param configService Configuration service for accessing/modifying options
+     */
+    explicit CommandHandler(capsicain::services::ConfigurationService& configService);
 
     /**
      * Handle a command keystroke (ESC was pressed, now processing the command key)
@@ -27,6 +35,9 @@ public:
 private:
     // Command handler function type
     using CommandFunc = std::function<bool()>;
+
+    // Dependencies
+    capsicain::services::ConfigurationService& configService_;
 
     // Dispatch map: scancode -> handler function
     std::map<int, CommandFunc> handlers_;

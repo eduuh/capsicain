@@ -73,7 +73,10 @@ InterceptionKeyStroke convertVkeyEvent2ikstroke(VKeyEvent keyEvent);
 std::map<uint8_t, Device>* getHardwareId(bool refresh = true);
 
 bool initConsoleWindow();
-void parseIniGlobals();
+
+// Forward declaration for ConfigurationService
+namespace capsicain { namespace services { class ConfigurationService; } }
+void parseIniGlobals(capsicain::services::ConfigurationService& configService);
 
 void printHelloHeader();
 void printStatus();
@@ -87,7 +90,7 @@ void printLoopState4TapState();
 
 
 void reset();
-void reload();
+void reload(capsicain::services::ConfigurationService& configService);
 void releaseAllSentKeys();
 std::vector<std::string> assembleConfig(int config);
 void switchConfig(int config, bool forceReloadSameLayer);
