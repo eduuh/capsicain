@@ -11,17 +11,17 @@
 #include <vector>
 
 // Forward declarations of functions we're testing
-bool stringStartsWith(std::string haystack, std::string needle);
-std::string stringToLower(std::string str);
-std::string stringToUpper(std::string str);
+bool stringStartsWith(const std::string& haystack, const std::string& needle) noexcept;
+std::string stringToLower(const std::string& str) noexcept;
+std::string stringToUpper(const std::string& str) noexcept;
 std::vector<std::string> stringSplit(const std::string &line, char delimiter);
-bool stringToInt(std::string strval, int& result);
+bool stringToInt(const std::string& strval, int& result);
 std::string stringCutFirstToken(std::string& line);
-std::string stringCopyFirstToken(std::string line);
-std::string stringGetLastToken(std::string line);
-std::string stringGetRestBehindFirstToken(std::string line);
-bool stringReplace(std::string& haystack, const std::string& needle, const std::string& newneedle);
-std::string stringIntToHex(const unsigned int i, unsigned int minLength);
+std::string stringCopyFirstToken(const std::string& line) noexcept;
+std::string stringGetLastToken(const std::string& line) noexcept;
+std::string stringGetRestBehindFirstToken(const std::string& line) noexcept;
+bool stringReplace(std::string& haystack, const std::string& needle, const std::string& newneedle) noexcept;
+std::string stringIntToHex(const unsigned int i, unsigned int minLength) noexcept;
 
 // Inline functions from utils.h
 inline void ltrim(std::string &s) {

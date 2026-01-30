@@ -6,9 +6,12 @@
 #include "legacy/configUtils.h"
 #include "legacy/traybar.h"
 
+// Debug logging - runtime conditional based on options
 #define IFDEBUG if(options.debug && !globalState.secretSequenceRecording)
-#define IFTRACE if(false)
-#define IFPROF if(false) //measuring time takes some time
+
+// Trace and profiling - compile-time disabled (can be re-enabled by changing to true)
+constexpr bool ENABLE_TRACE = false;
+constexpr bool ENABLE_PROFILING = false;
 
 struct Executable
 {

@@ -18,7 +18,7 @@ int ledSendCommand(HANDLE hKeyboard, USHORT ledFlags) noexcept
     ULONG               ReturnedLength; // Number of bytes returned in output buffer
 
     InputBuffer.LedFlags = ledFlags;
-    IFTRACE std::cout << std::endl << "LED out:" << std::hex << InputBuffer.LedFlags;
+    if constexpr (ENABLE_TRACE) std::cout << std::endl << "LED out:" << std::hex << InputBuffer.LedFlags;
 
     InputBuffer.UnitId = 0;
     if (!DeviceIoControl(hKeyboard, IOCTL_KEYBOARD_SET_INDICATORS,
@@ -85,14 +85,14 @@ bool WINAPI setLED(UINT ledKeySC, bool ledOn)
     {
         if (pRawInputDeviceList[devNum].dwType == RIM_TYPEKEYBOARD)
         {
-            IFTRACE std::cout << std::endl << devNum << " = keyboard";
+            if constexpr (ENABLE_TRACE) std::cout << std::endl << devNum << " = keyboard";
 
             char DeviceName[256] = "";
             unsigned int DeviceNameLength = 256;
 
             GetRawInputDeviceInfo(pRawInputDeviceList[devNum].hDevice, RIDI_DEVICENAME, NULL, &DeviceNameLength);
             GetRawInputDeviceInfo(pRawInputDeviceList[devNum].hDevice, RIDI_DEVICENAME, DeviceName, &DeviceNameLength);
-            IFTRACE std::cout << std::endl << devNum << "-" << DeviceName;
+            if constexpr (ENABLE_TRACE) std::cout << std::endl << devNum << "-" << DeviceName;
 
             HANDLE hKeyboard = CreateFileA(DeviceName, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
             if (hKeyboard == INVALID_HANDLE_VALUE)

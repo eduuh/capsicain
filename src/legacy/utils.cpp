@@ -281,7 +281,7 @@ bool stringReplace(std::string& haystack, const std::string& needle, const std::
     return true;
 }
 
-std::string stringIntToHex(const unsigned int i, unsigned int minLength) 
+std::string stringIntToHex(const unsigned int i, unsigned int minLength) noexcept
 {
     std::stringstream s;
     s << setfill('0') << setw(minLength) << std::hex << i;
@@ -324,7 +324,7 @@ std::wstring LoadUtf8FileToString(const std::wstring& filename)
     return buffer;
 }
 
-std::wstring widen(const std::string& s)
+std::wstring widen(const std::string& s) noexcept
 {
     std::wstring temp(s.length(),L' ');
     std::copy(s.begin(), s.end(), temp.begin());

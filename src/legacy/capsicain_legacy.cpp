@@ -425,7 +425,7 @@ int capsicain_main_impl()
 
     interceptionState.interceptionContext = interception_create_context();
 
-    IFPROF profiler.stopwatchRestart();
+    if constexpr (ENABLE_PROFILING) profiler.stopwatchRestart();
 
     consoleUI.printHeader();
 
@@ -460,7 +460,7 @@ int capsicain_main_impl()
         setLED(globals.capsicainOnOffKey, true);
     }
 
-    IFPROF cout << endl << endl << "Profiling enabled in this build" << endl << "Startup time: " << profiler.stopwatchReadUS() / 1000 << " ms" << endl;
+    if constexpr (ENABLE_PROFILING) cout << endl << endl << "Profiling enabled in this build" << endl << "Startup time: " << profiler.stopwatchReadUS() / 1000 << " ms" << endl;
 
     raise_process_priority(); //careful: if we spam key events, other processes get no timeslots to process them. Sleep a bit...
 
@@ -526,7 +526,7 @@ int capsicain_main_impl()
                 interceptionState.interceptionDevice = device;
                 interceptionState.currentIKstroke = strokes[i];
 
-                IFPROF
+                if constexpr (ENABLE_PROFILING)
                 {
                     //Measure Timing. sleep() is not precise; just a rough outline. Expect occasional 30ms sleeps from thread scheduling.
                     profiler.timepointPreviousKeyEvent = profiler.timepointLoopStart;
@@ -536,7 +536,7 @@ int capsicain_main_impl()
                 }
 
                 //low level debugging, show incoming raw key
-                IFTRACE consoleUI.printIKStrokeState(interceptionState.currentIKstroke);
+                if constexpr (ENABLE_TRACE) consoleUI.printIKStrokeState(interceptionState.currentIKstroke);
 
                 //clear loop state
                 loopState = defaultLoopState;
@@ -578,7 +578,7 @@ int capsicain_main_impl()
                 {
                     //getHardwareId();
                     //detail to debug the "new device after sleep, reboot after 10 new devices"
-                    IFTRACE cout << endl
+                    if constexpr (ENABLE_TRACE) cout << endl
                         << "<" << endl
                         << "new keyboard: " << (globalState.deviceIsAppleKeyboard ? "Apple keyboard" : "IBM keyboard") << endl
                         << "new keyboard count: " << ++interceptionState.newKeyboardCounter << endl
@@ -824,7 +824,7 @@ int capsicain_main_impl()
                 IFDEBUG
                 {
                     cout << endl;
-                    IFPROF cout << "(" << setw(5) << dec << timeBetweenTimepointsUS(profiler.timepointPreviousKeyEvent, profiler.timepointLoopStart) / 1000 << " m) ";
+                    if constexpr (ENABLE_PROFILING) cout << "(" << setw(5) << dec << timeBetweenTimepointsUS(profiler.timepointPreviousKeyEvent, profiler.timepointLoopStart) / 1000 << " m) ";
                     consoleUI.printLoopState1Input();
                 }
 
@@ -929,7 +929,7 @@ int capsicain_main_impl()
                     modifierTracker.clearAllTapped();  // Sync to ModifierTracker
                 }
 
-                IFPROF
+                if constexpr (ENABLE_PROFILING)
                 {
                 unsigned long mappingtime = profiler.stopwatchRestart();
                 profiler.totalMappingTimeUS += mappingtime;
@@ -940,7 +940,7 @@ int capsicain_main_impl()
                 }
 
                 sendResultingKeyOrSequence();
-                IFPROF
+                if constexpr (ENABLE_PROFILING)
                 {
                 unsigned long sendingtime = profiler.stopwatchReadUS();
                 profiler.totalSendingTimeUS += sendingtime;
@@ -1011,7 +1011,7 @@ bool processOnOffKey()
         if (interceptionState.currentIKstroke.state > 3
             && interceptionState.currentIKstroke.code == SC_LCTRL)
         {
-            IFTRACE cout << endl << "dropping E2 LCTRL";
+            if constexpr (ENABLE_TRACE) cout << endl << "dropping E2 LCTRL";
             return true;
         }
 
@@ -1039,13 +1039,13 @@ bool processOnOffKey()
             else
                 cout << endl << endl << "[" << getPrettyVKLabel(globals.capsicainOnOffKey) << "] -> Capsicain OFF";
         }
-        IFTRACE cout << endl << pauseKeyTriggeredOnOff;
+        if constexpr (ENABLE_TRACE) cout << endl << pauseKeyTriggeredOnOff;
         //forward only the three keys that have LEDs, to signal the state of capsicain
         if (globals.capsicainOnOffKey == SC_NUMLOCK
             || globals.capsicainOnOffKey == SC_SCRLOCK
             || globals.capsicainOnOffKey == SC_CAPS)
         {
-            IFTRACE cout << "OnOff event: setting LED for: " << getPrettyVKLabel(globals.capsicainOnOffKey);
+            if constexpr (ENABLE_TRACE) cout << "OnOff event: setting LED for: " << getPrettyVKLabel(globals.capsicainOnOffKey);
             setLED(globals.capsicainOnOffKey, globalState.capsicainOn);
         }
         return true;
@@ -1061,7 +1061,7 @@ bool processMessyKeys()
     //Alt+Print = ALTPRINT, map to PRINT?
     if (loopState.vcode == SC_ALTPRINT)
     {
-        IFTRACE cout << endl << SC_ALTPRINT;
+        if constexpr (ENABLE_TRACE) cout << endl << SC_ALTPRINT;
         if (globals.translateMessyKeys)
             loopState.vcode = SC_PRINT;
     }
@@ -1093,7 +1093,7 @@ bool processMessyKeys()
     //Ctrl+Pause produces SC_BREAK = Exit signal
     if (loopState.vcode == SC_BREAK)
     {
-        IFTRACE cout << endl << "Ctrl+Pause=BREAK";
+        if constexpr (ENABLE_TRACE) cout << endl << "Ctrl+Pause=BREAK";
         //drop SC_BREAK ?
         if (globals.protectConsole
             && IS_LCTRL_DOWN 
@@ -1808,7 +1808,7 @@ void reset()
     loopState = defaultLoopState;
     modifierState = defaultModifierState;
 
-    IFPROF
+    if constexpr (ENABLE_PROFILING)
     {
         chrono::steady_clock::time_point tps = profiler.timepointStopwatch;
         chrono::steady_clock::time_point tppk = profiler.timepointPreviousKeyEvent;
@@ -1936,7 +1936,7 @@ void sendCapsicainCodeHandler(VKeyEvent keyEvent)
     if (!keyEvent.isDownstroke)
         return;
 
-    IFTRACE cout << endl << "(CPS code: " << getPrettyVKLabelPadded(keyEvent.vcode, 0) << ")";
+    if constexpr (ENABLE_TRACE) cout << endl << "(CPS code: " << getPrettyVKLabelPadded(keyEvent.vcode, 0) << ")";
 
     switch (keyEvent.vcode)
     {
@@ -1977,7 +1977,7 @@ void sendCapsicainCodeHandler(VKeyEvent keyEvent)
         }
         
         //manually send a PAUSE sequence with E1 escape (iks state 4/5)
-        IFTRACE cout << endl << "sending the Pause key sequence E1 LCTRL NUMLOCK";
+        if constexpr (ENABLE_TRACE) cout << endl << "sending the Pause key sequence E1 LCTRL NUMLOCK";
         InterceptionKeyStroke iks_cont = {SC_LCTRL,4,0};
         interception_send(interceptionState.interceptionContext, interceptionState.interceptionDevice, (InterceptionStroke*)&iks_cont, 1);
         InterceptionKeyStroke iks_numl = { SC_NUMLOCK,0,0 };
@@ -2133,15 +2133,15 @@ void playKeyEventSequence(vector<VKeyEvent> keyEventSequence)
             switch (expectParamForFuncKey)
             {
             case VK_CPS_SLEEP:
-                IFTRACE cout << endl << "vk_cps_sleep: " << vc;
+                if constexpr (ENABLE_TRACE) cout << endl << "vk_cps_sleep: " << vc;
                 Sleep(vc);
                 break;
             case VK_CPS_DEADKEY:
-                IFTRACE cout << endl << "vk_cps_deadkey: " << getPrettyVKLabelPadded(vc, 0);
+                if constexpr (ENABLE_TRACE) cout << endl << "vk_cps_deadkey: " << getPrettyVKLabelPadded(vc, 0);
                 modifierState.activeDeadkey = vc;
                 break;
             case VK_CPS_CONFIGSWITCH:
-                IFTRACE cout << endl << "vk_cps_configswitch: " << vc;
+                if constexpr (ENABLE_TRACE) cout << endl << "vk_cps_configswitch: " << vc;
                 switchConfig(vc, false);
                 break;
             case VK_CPS_RECORDMACRO:
@@ -2174,7 +2174,7 @@ void playKeyEventSequence(vector<VKeyEvent> keyEventSequence)
             }
             case VK_CPS_PLAYMACRO:
             {
-                IFTRACE cout << endl << "vk_cps_playmacro: " << vc;
+                if constexpr (ENABLE_TRACE) cout << endl << "vk_cps_playmacro: " << vc;
                 int macnum = vc;
 
                 if (macnum < 1 || macnum >= MAX_NUM_MACROS)
@@ -2193,7 +2193,7 @@ void playKeyEventSequence(vector<VKeyEvent> keyEventSequence)
             }
             case VK_CPS_HOLDKEY:
             {
-                IFTRACE cout << endl << "vk_cps_holdkey: " << getPrettyVKLabelPadded(loopState.vcode, 0) << " -> " << getPrettyVKLabelPadded(vc, 0);
+                if constexpr (ENABLE_TRACE) cout << endl << "vk_cps_holdkey: " << getPrettyVKLabelPadded(loopState.vcode, 0) << " -> " << getPrettyVKLabelPadded(vc, 0);
                 if (!getKeyHolding(vc))
                 {
                     globalState.holdKeys[loopState.vcode].emplace(vc);
@@ -2215,7 +2215,7 @@ void playKeyEventSequence(vector<VKeyEvent> keyEventSequence)
                             if (modifierState.modifierDown & mask)
                             {
                                 int mod = getModifierForBitmask(mask);
-                                IFTRACE cout << endl << "vk_cps_holdmod: " << getPrettyVKLabelPadded(mod, 0) << " -> " << getPrettyVKLabelPadded(vc, 0);
+                                if constexpr (ENABLE_TRACE) cout << endl << "vk_cps_holdmod: " << getPrettyVKLabelPadded(mod, 0) << " -> " << getPrettyVKLabelPadded(vc, 0);
                                 globalState.holdKeys[mod].emplace(vc);
                                 break;
                             }
@@ -2232,7 +2232,7 @@ void playKeyEventSequence(vector<VKeyEvent> keyEventSequence)
                 break;
             }
             case VK_CPS_DELAY:
-                IFTRACE cout << endl << "vk_cps_delay: " << vc;
+                if constexpr (ENABLE_TRACE) cout << endl << "vk_cps_delay: " << vc;
                 options.delayForKeySequenceMS = vc;
                 break;
             case VK_CPS_KEYDOWN:
@@ -2473,7 +2473,7 @@ bool vkeyToMouse(VKeyEvent keyEvent)
 
 void sendVKeyEvent(VKeyEvent keyEvent, bool hold)
 {
-    IFTRACE cout << endl << "sendVkeyEvent(" << keyEvent.vcode << ")";
+    if constexpr (ENABLE_TRACE) cout << endl << "sendVkeyEvent(" << keyEvent.vcode << ")";
     if (keyEvent.vcode < 0)
     {
         cout << endl << "BUG: vcode<0";

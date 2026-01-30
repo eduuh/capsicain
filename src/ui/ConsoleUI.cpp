@@ -145,7 +145,7 @@ void ConsoleUI::printStatus()
         << (errorLog.length() > 1 ? "ERROR LOG contains entries" : "clean error log") << " (" << dec << errorLog.length() << " chars)"
         ;
 
-    IFPROF cout << endl << endl << "Profiling statistics (microseconds)"
+    if constexpr (ENABLE_PROFILING) cout << endl << endl << "Profiling statistics (microseconds)"
         << endl << "Incoming / Sent out: " << profiler.countIncoming << " / " << profiler.countOutgoing
         << endl << "Average mapping time: " << profiler.totalMappingTimeUS / profiler.countOutgoing
         << endl << "Average sending time: " << profiler.totalSendingTimeUS / profiler.countOutgoing
@@ -207,7 +207,7 @@ void ConsoleUI::printLoopState4TapState()
     cout << (loopState.tappedSlow ? " (tap slow)" : "");
     cout << (loopState.tapped ? " (tap)" : "");
 
-    IFTRACE if (loopState.tapHoldMake)
+    if constexpr (ENABLE_TRACE) if (loopState.tapHoldMake)
         cout << " (TapHold:" << hex << interceptionState.currentIKstroke.code << ")";
     if (modifierState.tapAndHoldKey >= 0)
         cout << " (TapHoldKey: " << hex << modifierState.tapAndHoldKey << ")";

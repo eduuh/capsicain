@@ -10,7 +10,7 @@
 
 // Forward declarations
 void defineAllPrettyVKLabels(std::string prettyVKLabels[]);
-int getVcode(std::string label, std::string prettyVKLabels[]);
+int getVcode(const std::string& label, std::string prettyVKLabels[]) noexcept;
 
 // Helper class to manage prettyVKLabels array
 class ScancodesTest : public ::testing::Test {
