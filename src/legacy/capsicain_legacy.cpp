@@ -135,6 +135,15 @@ struct AllMaps
         { INI_TAG_REPEATCOMBOS, {} }
     };
 
+    // Cached converted combos for performance (avoid conversion on every keystroke)
+    map<string, vector<capsicain::domain::ComboRule> > convertedCombos{
+        { INI_TAG_COMBOS, {} },
+        { INI_TAG_UPCOMBOS, {} },
+        { INI_TAG_TAPCOMBOS, {} },
+        { INI_TAG_SLOWCOMBOS, {} },
+        { INI_TAG_REPEATCOMBOS, {} }
+    };
+
     int alphamap[MAX_VCODES] = { }; //MUST initialize this manually to 1 1, 2 2, 3 3, ...
 
     map<int, Executable> executables;
@@ -822,32 +831,6 @@ int capsicain_main_impl()
 
                 //evaluate modified keys - use refactored ComboMatcher
                 {
-                    // Helper to convert legacy ModifierCombo to ComboRule
-                    auto convertCombos = [](const vector<ModifierCombo>& legacyCombos) {
-                        vector<capsicain::domain::ComboRule> rules;
-                        for (const auto& combo : legacyCombos) {
-                            capsicain::domain::ComboRule rule;
-                            rule.triggerKey = combo.vkey;
-                            rule.modAnd = combo.modAnd;
-                            rule.modOr = combo.modOr;
-                            rule.modNot = combo.modNot;
-                            rule.modTap = combo.modTap;
-                            rule.modTapAnd = combo.modTapAnd;
-                            rule.devAnd = combo.devAnd;
-                            rule.devNot = combo.devNot;
-                            rule.deadkey = combo.deadkey;
-                            // Convert VKeyEvent sequence to ComboKeyEvent sequence
-                            for (const auto& evt : combo.keyEventSequence) {
-                                rule.resultSequence.push_back({
-                                    static_cast<capsicain::domain::VKeyCode>(evt.vcode),
-                                    evt.isDownstroke
-                                });
-                            }
-                            rules.push_back(rule);
-                        }
-                        return rules;
-                    };
-
                     // Build ComboMatchContext
                     capsicain::domain::ComboMatchContext comboContext;
                     comboContext.currentKey = loopState.vcode;
@@ -859,22 +842,24 @@ int capsicain_main_impl()
                         : 0;
                     comboContext.activeDeadkey = modifierState.activeDeadkey;
 
-                    // Match combos using refactored domain component
+                    // Match combos using refactored domain component with cached converted combos
                     capsicain::domain::ComboMatchResult comboResult;
 
                     if (loopState.isDownstroke) {
-                        auto downCombos = convertCombos(allMaps.modCombos[INI_TAG_COMBOS]);
-                        auto repeatCombos = convertCombos(allMaps.modCombos[INI_TAG_REPEATCOMBOS]);
                         comboResult = comboMatcher.matchDownstroke(
-                            downCombos, repeatCombos, comboContext, loopState.repeat
+                            allMaps.convertedCombos[INI_TAG_COMBOS],
+                            allMaps.convertedCombos[INI_TAG_REPEATCOMBOS],
+                            comboContext,
+                            loopState.repeat
                         );
                     } else {
-                        auto upCombos = convertCombos(allMaps.modCombos[INI_TAG_UPCOMBOS]);
-                        auto tapCombos = convertCombos(allMaps.modCombos[INI_TAG_TAPCOMBOS]);
-                        auto slowCombos = convertCombos(allMaps.modCombos[INI_TAG_SLOWCOMBOS]);
                         comboResult = comboMatcher.matchUpstroke(
-                            upCombos, tapCombos, slowCombos, comboContext,
-                            loopState.tapped, loopState.tappedSlow
+                            allMaps.convertedCombos[INI_TAG_UPCOMBOS],
+                            allMaps.convertedCombos[INI_TAG_TAPCOMBOS],
+                            allMaps.convertedCombos[INI_TAG_SLOWCOMBOS],
+                            comboContext,
+                            loopState.tapped,
+                            loopState.tappedSlow
                         );
                     }
 
@@ -1703,6 +1688,38 @@ bool parseProcessIniConfig(int config)
     parseIniExecutables(assembledConfig);
 
     parseIniCombos(assembledConfig);
+
+    // Convert legacy combos to domain ComboRules once (for performance)
+    for (auto& pair : allMaps.modCombos) {
+        const string& tag = pair.first;
+        const vector<ModifierCombo>& legacyCombos = pair.second;
+        vector<capsicain::domain::ComboRule>& convertedRules = allMaps.convertedCombos[tag];
+
+        convertedRules.clear();
+        convertedRules.reserve(legacyCombos.size());
+
+        for (const auto& combo : legacyCombos) {
+            capsicain::domain::ComboRule rule;
+            rule.triggerKey = combo.vkey;
+            rule.modAnd = combo.modAnd;
+            rule.modOr = combo.modOr;
+            rule.modNot = combo.modNot;
+            rule.modTap = combo.modTap;
+            rule.modTapAnd = combo.modTapAnd;
+            rule.devAnd = combo.devAnd;
+            rule.devNot = combo.devNot;
+            rule.deadkey = combo.deadkey;
+            rule.resultSequence.reserve(combo.keyEventSequence.size());
+            for (const auto& evt : combo.keyEventSequence) {
+                rule.resultSequence.push_back({
+                    static_cast<capsicain::domain::VKeyCode>(evt.vcode),
+                    evt.isDownstroke
+                });
+            }
+            convertedRules.push_back(std::move(rule));
+        }
+    }
+
     IFDEBUG cout << endl << "Down   Definitions: " << dec << allMaps.modCombos[INI_TAG_COMBOS].size();
     IFDEBUG cout << endl << "Up     Definitions: " << dec << allMaps.modCombos[INI_TAG_UPCOMBOS].size();
     IFDEBUG cout << endl << "Tap    Definitions: " << dec << allMaps.modCombos[INI_TAG_TAPCOMBOS].size();
