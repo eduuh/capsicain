@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <array>
 
 // Selective using declarations (acceptable in .cpp files)
 using std::cout;
@@ -58,7 +59,7 @@ extern struct AllMaps {
     std::map<uint8_t, Device> devices;
 } allMaps;
 
-extern std::string PRETTY_VK_LABELS[];
+extern std::array<std::string, MAX_VCODES> PRETTY_VK_LABELS;
 extern std::string errorLog;
 
 // Forward declarations of external functions

@@ -7,6 +7,7 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <array>
 #include <algorithm>
 #include <string>
 #include <sstream>
@@ -84,7 +85,7 @@ int TESTING_LAYER_SHIFT_TO = 9;     // tmp shift to this layer
 int TESTING_LAYER_SHIFT_FROM = -1;  // original layer. <0 means undefined
 */
 
-string PRETTY_VK_LABELS[MAX_VCODES]; // contains e.g. [SC_ESCAPE]="ESC"; all VKs incl. > 0xFF
+std::array<string, MAX_VCODES> PRETTY_VK_LABELS; // contains e.g. [SC_ESCAPE]="ESC"; all VKs incl. > 0xFF
 
 vector<string> sanitizedIniContent;  //loaded on startup and reset
 
@@ -138,7 +139,7 @@ struct AllMaps
 {
     //inkey outkey (tapped)
     //-1 = undefined key
-    int rewiremap[REWIRE_ROWS][REWIRE_COLS] = { }; //MUST initialize this manually to -1 !!
+    std::array<std::array<int, REWIRE_COLS>, REWIRE_ROWS> rewiremap{}; //MUST initialize this manually to -1 !!
 
     map<string, vector<ModifierCombo> > modCombos{
         { INI_TAG_COMBOS, {} },
@@ -157,7 +158,7 @@ struct AllMaps
         { INI_TAG_REPEATCOMBOS, {} }
     };
 
-    int alphamap[MAX_VCODES] = { }; //MUST initialize this manually to 1 1, 2 2, 3 3, ...
+    std::array<int, MAX_VCODES> alphamap{}; //MUST initialize this manually to 1 1, 2 2, 3 3, ...
 
     map<int, Executable> executables;
     map<uint8_t, Device> devices;
@@ -193,14 +194,14 @@ struct GlobalState
     bool deviceIsAppleKeyboard = false;
 
     int keysDownSentCounter = 0;  //tracks how many keys are actually down that Windows knows about
-    bool keysDownSent[256] = { false };  //Remember all forwarded to Windows. Sent keys must be 8 bit
-    bool keysDownTempReleased[256] = { false };  //Remember all keys that were temporarily released, e.g. to send an Alt-Numpad combo
-    set<int> holdKeys[VK_MAX];  //Remember all replaced hold() keys while the physical key is still down
+    std::array<bool, 256> keysDownSent{};  //Remember all forwarded to Windows. Sent keys must be 8 bit
+    std::array<bool, 256> keysDownTempReleased{};  //Remember all keys that were temporarily released, e.g. to send an Alt-Numpad combo
+    std::array<set<int>, VK_MAX> holdKeys;  //Remember all replaced hold() keys while the physical key is still down
 
     bool secretSequenceRecording = false;
     bool secretSequencePlayback = false;
     int recordingMacro = -1; //-1: not recording. 1..MAX_SIMPLE_MACROS : this is currently recording. 0=currently recording the 'hard' ESC+J macro
-    vector<VKeyEvent> recordedMacros[MAX_NUM_MACROS];  // [0] stores the 'hard' macro
+    std::array<vector<VKeyEvent>, MAX_NUM_MACROS> recordedMacros;  // [0] stores the 'hard' macro
 } globalState;
 static const struct GlobalState defaultGlobalState;
 
@@ -910,7 +911,7 @@ int capsicain_main_impl()
                     // Apply alpha mapping using refactored domain component
                     capsicain::domain::AlphaMapResult alphaResult = keyMapper.mapAlpha(
                         loopState.vcode,
-                        allMaps.alphamap,
+                        allMaps.alphamap.data(),
                         alphaOptions,
                         loopState.isModifier,
                         IS_LCTRL_DOWN,
@@ -1262,7 +1263,7 @@ void parseIniGlobals()
         else if (token == "capsicainonoffkey")
         {
             string s = stringGetRestBehindFirstToken(line);
-            int key = getVcode(s, PRETTY_VK_LABELS);
+            int key = getVcode(s, PRETTY_VK_LABELS.data());
             if (key < 0)
                 cout << "ERROR: unknown key label: " << line << endl;
             else if (key > 255 && key != VK_CPS_PAUSE)
@@ -1289,7 +1290,7 @@ void parseIniGlobals()
             auto keys = stringSplit(stringGetRestBehindFirstToken(line), ' ');
             for (auto s : keys)
             {
-                int key = getVcode(s, PRETTY_VK_LABELS);
+                int key = getVcode(s, PRETTY_VK_LABELS.data());
                 globals.disableEscKey.insert(key);
             }
         }
@@ -1298,7 +1299,7 @@ void parseIniGlobals()
             auto keys = stringSplit(stringGetRestBehindFirstToken(line), ' ');
             for (auto s : keys)
             {
-                int key = getVcode(s, PRETTY_VK_LABELS);
+                int key = getVcode(s, PRETTY_VK_LABELS.data());
                 globals.forwardEscKey.insert(key);
             }
         }
@@ -1421,7 +1422,7 @@ void parseIniRewires(std::vector<std::string> assembledIni)
     {
         keyTap = -1;
         keyTapHold = -1;
-        if (parseKeywordRewire(line, keyIn, keyOut, keyTap, keyTapHold, PRETTY_VK_LABELS))
+        if (parseKeywordRewire(line, keyIn, keyOut, keyTap, keyTapHold, PRETTY_VK_LABELS.data()))
         {
             //duplicate?
             if (allMaps.rewiremap[keyIn][REWIRE_OUT] >= 0)
@@ -1454,7 +1455,7 @@ bool parseIniCombos(std::vector<std::string> assembledIni)
         {
             int key;
             DEV devs[2] = { 0xFFFFFFFF, 0 };
-            if (parseKeywordCombo(line, key, mods, devs, keyEventSequence, PRETTY_VK_LABELS, options.defaultFunction))
+            if (parseKeywordCombo(line, key, mods, devs, keyEventSequence, PRETTY_VK_LABELS.data(), options.defaultFunction))
             {
                 bool isDuplicate = false;
                 for (ModifierCombo testcombo : combos)
@@ -1534,7 +1535,7 @@ bool parseIniAlphaLayout(std::vector<std::string> assembledIni)
         else if (firstToken == tagEnd)
         {
             inMapFromTo = false;
-            if (!parseKeywordsAlpha_FromTo(mapFromTo, allMaps.alphamap, PRETTY_VK_LABELS))
+            if (!parseKeywordsAlpha_FromTo(mapFromTo, allMaps.alphamap.data(), PRETTY_VK_LABELS.data()))
                 error("Cannot parse the " + INI_TAG_ALPHA_FROM + ".." + INI_TAG_ALPHA_TO + " alpha definition");
         }
         else if (inMapFromTo)

@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <iomanip>
+#include <array>
 #include "legacy/capsicain_legacy.h"
 #include "platform/constants.h"
 #include "legacy/utils.h"
@@ -80,7 +81,7 @@ extern struct ProfilingTimer {
     unsigned long worstSendingTimeUS;
 } profiler;
 
-extern std::string PRETTY_VK_LABELS[];
+extern std::array<std::string, MAX_VCODES> PRETTY_VK_LABELS;
 extern std::string errorLog;
 
 // External functions

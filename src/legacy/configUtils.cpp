@@ -281,7 +281,7 @@ bool getIntValueForKey(const string& key, int& value, const vector<string>& sect
 
 
 // parse "a b c ALPHA_TO x y z"
-bool parseKeywordsAlpha_FromTo(const std::string& alpha_to, int (&alphamap)[MAX_VCODES], std::string scLabels[])
+bool parseKeywordsAlpha_FromTo(const std::string& alpha_to, int* alphamap, std::string scLabels[])
 {
     size_t idx1 = alpha_to.find(stringToLower(INI_TAG_ALPHA_TO));
     if (idx1 == string::npos)
