@@ -62,7 +62,7 @@ DWORD FindProcessId(const string& processName)
     PROCESSENTRY32 processInfo;
     processInfo.dwSize = sizeof(processInfo);
 
-    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, nullptr);
     if (processesSnapshot == INVALID_HANDLE_VALUE)
         return 0;
 
@@ -100,7 +100,7 @@ string startProgram(const string& processName, const string& dir)
     }
     else
     {
-        ShellExecuteA(NULL, "open", path.c_str(), NULL, dir.c_str(), SW_SHOWDEFAULT);
+        ShellExecuteA(nullptr, "open", path.c_str(), nullptr, dir.c_str(), SW_SHOWDEFAULT);
     }
     return ret;
 }
@@ -108,7 +108,7 @@ string startProgram(const string& processName, const string& dir)
 string startProgramSameFolder(const string& processName)
 {
     char buffer[MAX_PATH];
-    GetModuleFileNameA(NULL, buffer, sizeof(buffer));
+    GetModuleFileNameA(nullptr, buffer, sizeof(buffer));
     string::size_type pos = string(buffer).find_last_of("\\/");
     string homedir = (string(buffer).substr(0, pos));
     return startProgram(processName, homedir);
@@ -302,7 +302,7 @@ std::wstring LoadUtf8FileToString(const std::wstring& filename)
     _wfopen_s(&f, filename.c_str(), L"rtS, ccs=UTF-8");
 
     // Failed to open file
-    if (f == NULL)
+    if (f == nullptr)
     {
         // ...handle some error...
         return buffer;

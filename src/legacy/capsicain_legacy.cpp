@@ -167,14 +167,14 @@ struct AllMaps
 struct InterceptionState
 {
     int newKeyboardCounter = 0;
-    InterceptionContext interceptionContext = NULL;
-    InterceptionDevice interceptionDevice = NULL;
-    InterceptionDevice previousInterceptionDevice = NULL;
+    InterceptionContext interceptionContext = nullptr;
+    InterceptionDevice interceptionDevice = nullptr;
+    InterceptionDevice previousInterceptionDevice = nullptr;
     InterceptionKeyStroke currentIKstroke = { SC_NOP, 0 };
     InterceptionKeyStroke previousIKstroke1 = { SC_NOP, 0 }; //remember history
     InterceptionKeyStroke previousIKstroke2 = { SC_NOP, 0 };
-    InterceptionDevice lastMouse = NULL;
-    InterceptionDevice lastKeyboard = NULL;
+    InterceptionDevice lastMouse = nullptr;
+    InterceptionDevice lastKeyboard = nullptr;
 } interceptionState;
 
 struct GlobalState
@@ -564,7 +564,7 @@ int capsicain_main_impl()
 
                 //ignore secondary keyboard?
                 if (options.processOnlyFirstKeyboard 
-                    && (interceptionState.previousInterceptionDevice != NULL)
+                    && (interceptionState.previousInterceptionDevice != nullptr)
                     && (interceptionState.previousInterceptionDevice != interceptionState.interceptionDevice))
                 {
                     IFDEBUG cout << endl << "Ignore 2nd board (" << interceptionState.interceptionDevice << ") scancode: " << interceptionState.currentIKstroke.code;
@@ -573,7 +573,7 @@ int capsicain_main_impl()
                 }
 
                 //device id changed / check for Apple Keyboard
-                if (interceptionState.previousInterceptionDevice == NULL    //startup
+                if (interceptionState.previousInterceptionDevice == nullptr    //startup
                     || interceptionState.previousInterceptionDevice != interceptionState.interceptionDevice)  //keyboard changed
                 {
                     //getHardwareId();
@@ -1225,7 +1225,7 @@ bool initConsoleWindow()
 
 
     //disable CTRL-C
-    SetConsoleCtrlHandler(NULL, TRUE);
+    SetConsoleCtrlHandler(nullptr, TRUE);
 
     //disable quick edit; blocking the console window means the keyboard is dead
     HANDLE handle = GetStdHandle(STD_INPUT_HANDLE);
@@ -1637,7 +1637,7 @@ void parseIniExecutables(std::vector<std::string> assembledIni)
         if (params.size() > 4)
             stringToInt(params[4], mode);
 
-        allMaps.executables[id] = {verb, path, args, dir, mode, NULL};
+        allMaps.executables[id] = {verb, path, args, dir, mode, nullptr};
         tagCounter++;
     }
     IFDEBUG cout << endl << "Exe    Definitions: " << dec << tagCounter;

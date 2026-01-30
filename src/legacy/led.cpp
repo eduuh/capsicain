@@ -23,7 +23,7 @@ int ledSendCommand(HANDLE hKeyboard, USHORT ledFlags) noexcept
     InputBuffer.UnitId = 0;
     if (!DeviceIoControl(hKeyboard, IOCTL_KEYBOARD_SET_INDICATORS,
         &InputBuffer, DataLength,
-        NULL, 0, &ReturnedLength, NULL))
+        nullptr, 0, &ReturnedLength, nullptr))
         return GetLastError();
 
     return 0;
@@ -68,7 +68,7 @@ bool WINAPI setLED(UINT ledKeySC, bool ledOn)
     ledFlags = ledOn ? ledBitmask | requestedBitmask : ledBitmask & ~requestedBitmask;
 
     //get a list of all hardware devices
-    if (GetRawInputDeviceList(NULL, &nDevices, dlSize) != 0)
+    if (GetRawInputDeviceList(nullptr, &nDevices, dlSize) != 0)
     {
         std::cout << std::endl << "ERROR: GetRawInputDeviceList() found no keyboards";
         return false;
@@ -90,11 +90,11 @@ bool WINAPI setLED(UINT ledKeySC, bool ledOn)
             char DeviceName[256] = "";
             unsigned int DeviceNameLength = 256;
 
-            GetRawInputDeviceInfo(pRawInputDeviceList[devNum].hDevice, RIDI_DEVICENAME, NULL, &DeviceNameLength);
+            GetRawInputDeviceInfo(pRawInputDeviceList[devNum].hDevice, RIDI_DEVICENAME, nullptr, &DeviceNameLength);
             GetRawInputDeviceInfo(pRawInputDeviceList[devNum].hDevice, RIDI_DEVICENAME, DeviceName, &DeviceNameLength);
             if constexpr (ENABLE_TRACE) std::cout << std::endl << devNum << "-" << DeviceName;
 
-            HANDLE hKeyboard = CreateFileA(DeviceName, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+            HANDLE hKeyboard = CreateFileA(DeviceName, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
             if (hKeyboard == INVALID_HANDLE_VALUE)
             {
                 std::cout << std::endl << "Invalid handle, cannot open keyboard";

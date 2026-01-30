@@ -45,7 +45,7 @@ bool ShowInTaskbar()
     if (IsCapsicainInTray())
         DeleteIconFromTraybar();
     HWND myWindow = ::GetConsoleWindow();
-    if (myWindow == NULL)
+    if (myWindow == nullptr)
     {
         std::cout << std::endl << "BUG? GetConsoleWindow() failed";
         return false;
@@ -60,7 +60,7 @@ bool ShowInTraybar(bool enabled, bool recording, int activeConfig)
 {
     LPCTSTR lpszTip = "Capsicain "; // tooltip.c_str();
 
-    HMODULE handleToMyself = ::GetModuleHandleA(NULL);
+    HMODULE handleToMyself = ::GetModuleHandleA(nullptr);
     HICON hIcon;
     if( !enabled || activeConfig == 0)
         hIcon = LoadIcon(handleToMyself, MAKEINTRESOURCE(IDI_ICON_OFF));
