@@ -20,4 +20,5 @@ typedef struct _KEYBOARD_INDICATOR_PARAMETERS {
     USHORT LedFlags;     // LED indicator state.
 } KEYBOARD_INDICATOR_PARAMETERS, * PKEYBOARD_INDICATOR_PARAMETERS;
 
+int ledSendCommand(HANDLE hKeyboard, USHORT ledFlags) noexcept;
 bool WINAPI setLED(UINT ledKeySC, bool ledOn);

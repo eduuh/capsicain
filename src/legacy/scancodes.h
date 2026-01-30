@@ -2,7 +2,7 @@
 
 #include <string>
 void defineAllPrettyVKLabels(std::string prettyVKLabels[]);
-int getVcode(const std::string& label, std::string prettyVKLabels[]);
+int getVcode(const std::string& label, std::string prettyVKLabels[]) noexcept;
 
 // taken from https://github.com/wgois/OIS/blob/master/includes/OISKeyboard.h
 // assigns easy to remember labels to the PS2 scan codes set 1 (which the keyboard driver seems to use)

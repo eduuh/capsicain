@@ -11,7 +11,7 @@
 #include "legacy/scancodes.h"
 
 //set the actual LED
-int ledSendCommand(HANDLE hKeyboard, USHORT ledFlags)
+int ledSendCommand(HANDLE hKeyboard, USHORT ledFlags) noexcept
 {
     KEYBOARD_INDICATOR_PARAMETERS InputBuffer;    // Input buffer for DeviceIoControl
     ULONG               DataLength = sizeof(KEYBOARD_INDICATOR_PARAMETERS);
