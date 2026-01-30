@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-#include "legacy/configUtils.h"  // For legacy ::VKeyEvent
+#include "config/configUtils.h"  // For legacy ::VKeyEvent
 #include "core/Types.h"
 #include "core/KeyEvent.h"
 #include "domain/TapDetector.h"

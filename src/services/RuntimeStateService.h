@@ -6,7 +6,7 @@
 #include <set>
 #include "platform/constants.h"
 #include "core/Types.h"
-#include "legacy/scancodes.h"
+#include "core/scancodes.h"
 
 namespace capsicain {
 namespace services {

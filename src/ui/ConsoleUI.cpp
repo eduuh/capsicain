@@ -5,10 +5,10 @@
 #include <iostream>
 #include <iomanip>
 #include <array>
-#include "legacy/capsicain_legacy.h"
+#include "CapsicainImpl.h"
 #include "platform/constants.h"
-#include "legacy/utils.h"
-#include "legacy/modifiers.h"
+#include "utils/StringUtils.h"
+#include "core/modifiers.h"
 #include "platform/interception.h"
 
 // Selective using declarations (acceptable in .cpp files)

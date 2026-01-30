@@ -1,5 +1,5 @@
 #include "services/HardwareService.h"
-#include "legacy/scancodes.h"
+#include "core/scancodes.h"
 
 namespace capsicain {
 namespace services {

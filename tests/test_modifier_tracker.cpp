@@ -5,7 +5,7 @@
 
 #include <gtest/gtest.h>
 #include "domain/ModifierTracker.h"
-#include "legacy/scancodes.h"
+#include "core/scancodes.h"
 
 using namespace capsicain;
 

@@ -16,9 +16,9 @@ set(TEST_SOURCES
 
 # Define source files to test (excluding main app entry point and Windows-specific code)
 set(CAPSICAIN_TEST_SOURCES
-    ${CMAKE_SOURCE_DIR}/src/legacy/utils.cpp
-    ${CMAKE_SOURCE_DIR}/src/legacy/modifiers.cpp
-    ${CMAKE_SOURCE_DIR}/src/legacy/scancodes.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/StringUtils.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/modifiers.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/scancodes.cpp
 )
 
 # Create test executable

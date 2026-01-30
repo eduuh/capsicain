@@ -6,8 +6,8 @@
  */
 
 #include <gtest/gtest.h>
-#include "legacy/scancodes.h"
-#include "legacy/modifiers.h"
+#include "core/scancodes.h"
+#include "core/modifiers.h"
 
 //==============================================================================
 // getModifierBitmaskForVcode tests

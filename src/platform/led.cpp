@@ -4,11 +4,11 @@
 #include "platform/pch.h"
 #include <windows.h>
 #include <winioctl.h>
-#include "legacy/led.h"
+#include "platform/led.h"
 #include <iostream>
 #include <vector>
-#include "legacy/capsicain_legacy.h"
-#include "legacy/scancodes.h"
+#include "CapsicainImpl.h"
+#include "core/scancodes.h"
 
 //set the actual LED
 int ledSendCommand(HANDLE hKeyboard, USHORT ledFlags) noexcept

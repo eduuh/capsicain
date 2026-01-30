@@ -1,5 +1,5 @@
 #include "services/ConfigurationService.h"
-#include "legacy/configUtils.h"
+#include "config/configUtils.h"
 
 namespace capsicain {
 namespace services {

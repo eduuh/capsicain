@@ -8,7 +8,7 @@
  */
 
 #include "core/KeyEvent.h"
-#include "legacy/modifiers.h"
+#include "core/modifiers.h"
 
 namespace capsicain {
 

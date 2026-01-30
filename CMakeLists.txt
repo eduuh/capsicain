@@ -44,17 +44,23 @@ set(CAPSICAIN_SOURCES
     # Main entry point
     main.cpp
 
-    # Legacy monolithic code
-    src/legacy/capsicain_legacy.cpp
-    src/legacy/configUtils.cpp
-    src/legacy/modifiers.cpp
-    src/legacy/scancodes.cpp
-    src/legacy/utils.cpp
-    src/legacy/led.cpp
-    src/legacy/traybar.cpp
+    # Core implementation
+    src/CapsicainImpl.cpp
 
-    # Platform
+    # Core (domain constants & types)
+    src/core/modifiers.cpp
+    src/core/scancodes.cpp
+
+    # Configuration
+    src/config/configUtils.cpp
+
+    # Utilities
+    src/utils/StringUtils.cpp
+
+    # Platform (Windows-specific)
     src/platform/pch.cpp
+    src/platform/led.cpp
+    src/platform/traybar.cpp
 
     # Application layer
     src/app/Application.cpp
@@ -72,20 +78,29 @@ set(CAPSICAIN_SOURCES
 )
 
 set(CAPSICAIN_HEADERS
-    # Legacy headers
-    src/legacy/capsicain_legacy.h
-    src/legacy/configUtils.h
-    src/legacy/modifiers.h
-    src/legacy/scancodes.h
-    src/legacy/utils.h
-    src/legacy/led.h
-    src/legacy/traybar.h
+    # Core implementation
+    src/CapsicainImpl.h
+
+    # Core (domain constants & types)
+    src/core/KeyEvent.h
+    src/core/ProcessingContext.h
+    src/core/Types.h
+    src/core/modifiers.h
+    src/core/scancodes.h
+
+    # Configuration
+    src/config/configUtils.h
+
+    # Utilities
+    src/utils/StringUtils.h
 
     # Platform headers
     src/platform/pch.h
     src/platform/constants.h
     src/platform/resource.h
     src/platform/interception.h
+    src/platform/led.h
+    src/platform/traybar.h
 
     # Application layer headers
     src/app/Application.h
@@ -101,11 +116,6 @@ set(CAPSICAIN_HEADERS
     src/services/AutoHotkeyService.h
     src/services/RuntimeStateService.h
     src/services/KeyProcessingService.h
-
-    # Core headers
-    src/core/KeyEvent.h
-    src/core/ProcessingContext.h
-    src/core/Types.h
 
     # Domain headers
     src/domain/TapDetector.h
@@ -141,7 +151,7 @@ message(STATUS "Platform: ${CMAKE_SYSTEM_NAME} - ${CMAKE_SIZEOF_VOID_P}bit")
 # Precompiled headers
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.16")
     target_precompile_headers(capsicain PRIVATE src/platform/pch.h)
-    set_source_files_properties(src/legacy/utils.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+    set_source_files_properties(src/utils/StringUtils.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 endif()
 
 # Find the interception library (lib or dll)

@@ -1,6 +1,6 @@
 #include "services/UIService.h"
 #include "ui/ConsoleUI.h"
-#include "legacy/scancodes.h"
+#include "core/scancodes.h"
 #include <iostream>
 
 namespace capsicain {

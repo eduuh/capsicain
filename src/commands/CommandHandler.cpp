@@ -3,10 +3,10 @@
 #include "CommandHandler.h"
 
 // Include dependencies from legacy code
-#include "legacy/capsicain_legacy.h"
+#include "CapsicainImpl.h"
 #include "platform/constants.h"
-#include "legacy/traybar.h"
-#include "legacy/utils.h"
+#include "platform/traybar.h"
+#include "utils/StringUtils.h"
 #include "services/ConfigurationService.h"
 #include "services/UIService.h"
 

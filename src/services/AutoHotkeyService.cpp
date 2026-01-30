@@ -1,5 +1,5 @@
 #include "services/AutoHotkeyService.h"
-#include "legacy/utils.h"
+#include "utils/StringUtils.h"
 #include <iostream>
 #include <vector>
 
