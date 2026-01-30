@@ -1,83 +1,115 @@
 # Capsicain
 
-Capsicain is a powerful keyboard remapping and macro tool for Windows, designed for advanced users and tinkerers. It supports custom layouts, macros, and device-specific remapping.
+Advanced keyboard remapping tool for Windows using low-level driver interception.
 
-## Project Links
+## Features
 
-- [My fork (origin)](https://github.com/eduuh/capsicain)
-- [Dregu fork (otherfolk)](https://github.com/Dregu/capsicain)
-
-## About this Fork
-
-This repository is a fork of the original Capsicain project. I have added two remote origins:
-- The original upstream repository
-- The dregu fork (which contains interesting, though untested, changes)
-
-I am particularly interested in the untested dregu changes and plan to experiment with them.
-
-## Project Goals
-
-- Create a software keyboard solution that can fully replace programmable hardware keyboards
-- Use the built-in laptop keyboard as a fully programmable device
-- Support advanced features such as:
-  - **Single shot keys** (one-shot modifiers and actions)
-  - **Layers** (multiple keymaps, easily switchable)
-  - Macros and device-specific remapping
+- **Low-level key interception** - Captures keys before Windows processes them
+- **Custom keyboard layouts** - QWERTY, Dvorak, Colemak, Workman, etc.
+- **Tap/Hold modifiers** - Different actions for tap vs hold (tap Caps for Esc, hold for Ctrl)
+- **Key combos** - Layer switching with modifier combinations
+- **Tap dance** - Multiple taps trigger different actions
+- **Device-specific configs** - Different mappings per keyboard
+- **Macro recording** - Record and replay key sequences
+- **Leader keys** - Vim-style leader key sequences
+- **Alpha remapping** - Full keyboard layout customization
 
 ## Prerequisites
 
 - **Windows 10/11**
-- **Visual Studio 2019 or newer** (with "Desktop development with C++" workload)
-- **CMake** (https://cmake.org/download/)
-- **PowerShell** (comes with Windows)
+- **Visual Studio 2019+** with "Desktop development with C++"
+- **CMake 3.15+**
+- **Interception driver** must be installed
 
-## Quick Build Instructions
+## Quick Start
 
-1. **Open a x64 Native Tools Command Prompt for VS 2019/2022** (or similar for your Visual Studio version).
-2. **Clone the repository** (if you haven't already):
+### Build
 
-   ```sh
-   git clone https://github.com/yourusername/capsicain.git
-   cd capsicain
-   ```
+```powershell
+# Using build script
+./Build.ps1
 
-3. **Build using the provided PowerShell script:**
-
-   ```powershell
-   ./Build.ps1 -BuildType Debug
-   ```
-
-   - For a Release build, use `-BuildType Release`.
-   - The script will configure and build using CMake and MSVC.
-
-4. **Find the output:**
-   - Debug build: `capsicain/build/cmake-x64-Debug/DEBUG/`
-   - Release build: `capsicain/build/cmake-x64-Release/RELEASE/`
-   - The folder will contain `capsicain.exe`, `capsicain.ini`, `interception.dll`, and `AutoHotKey64.dll`.
-
-## Manual CMake Build
-
-If you prefer to use CMake directly:
-
-```sh
-mkdir build
-cd build
-cmake -G "Visual Studio 17 2022" -A x64 ..
-cmake --build . --config Debug
+# Or manually with CMake
+cmake -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release
 ```
 
-## Running Capsicain
+### Run
 
-- Make sure `capsicain.ini`, `interception.dll`, and `AutoHotKey64.dll` are in the same folder as `capsicain.exe`.
-- Run `capsicain.exe` from the output directory.
-- Edit `capsicain.ini` to customize your keyboard layout and macros.
+```powershell
+cd build/Release
+./capsicain.exe
+```
 
-## Troubleshooting
+Edit `capsicain.ini` to customize your key mappings.
 
-- **Missing DLLs:** Ensure `interception.dll` and `AutoHotKey64.dll` are present in the output directory.
-- **Build errors:** Make sure you have the correct Visual Studio version and CMake installed.
-- **Debugging:** Use the Debug build for breakpoints and symbol support in Visual Studio or VS Code.
+## Project Structure
+
+```
+capsicain/
+├── src/
+│   ├── app/           # Application layer
+│   ├── commands/      # Command handling
+│   ├── ui/            # Console UI
+│   ├── core/          # Core types
+│   ├── domain/        # Domain logic (pure functions)
+│   ├── interfaces/    # Interfaces
+│   ├── legacy/        # Legacy monolithic code (being refactored)
+│   ├── platform/      # Windows/Interception specific
+│   └── assets/        # Config files, DLLs
+├── tests/             # Unit tests (196 tests)
+└── build/             # Build output
+```
+
+## Testing
+
+```powershell
+cd build
+ctest -C Debug --output-on-failure
+```
+
+All 196 unit tests must pass.
+
+## Architecture
+
+The codebase follows a domain-driven design with clean separation of concerns:
+
+- **Domain layer** - Pure business logic (TapDetector, ModifierTracker, ComboMatcher, KeyMapper)
+- **Application layer** - Orchestration and I/O
+- **Platform layer** - Windows/Interception driver interface
+
+All domain components use modern C++17 with:
+- `noexcept` specifications for optimization
+- `constexpr` for compile-time evaluation
+- Explicit Rule of 5 for all classes
+- No manual memory management
+- Comprehensive unit test coverage
+
+## Key Mappings
+
+See `src/assets/capsicain.ini` for configuration examples:
+- `REWIRE` - Simple key remapping
+- `COMBOS` - Modifier combinations
+- `ALPHA_FROM/ALPHA_TO` - Layout remapping
+- `TAP/TAPHOLD` - Dual-function keys
+
+## Commands
+
+- **ESC+X** - Exit
+- **ESC+R** - Reload config
+- **ESC+0-9** - Switch layers
+- **ESC+H** - Help
 
 ## License
 
-See [LICENSE](../LICENSE) for details.
+See LICENSE file for details.
+
+## Note
+
+**⚠️ Experimental Learning Fork**: This fork is maintained by a developer learning C++ with heavy AI assistance (Claude). The codebase is being actively refactored as a learning exercise. Code quality may vary, and breaking changes are frequent. Use at your own risk!
+
+If you want a stable, production-ready version, please use the [original Capsicain project](https://github.com/cajhin/capsicain).
+
+## Credits
+
+Fork of original Capsicain by cajhin.
