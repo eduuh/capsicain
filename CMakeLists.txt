@@ -41,6 +41,9 @@ add_compile_definitions(_MBCS)
 
 # Define source files - organized by component
 set(CAPSICAIN_SOURCES
+    # Main entry point
+    main.cpp
+
     # Legacy monolithic code
     src/legacy/capsicain_legacy.cpp
     src/legacy/configUtils.cpp
