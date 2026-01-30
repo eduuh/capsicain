@@ -7,6 +7,7 @@ set(TEST_SOURCES
     test_utils.cpp
     test_modifiers.cpp
     test_scancodes.cpp
+    test_tap_detector.cpp
 )
 
 # Define source files to test (excluding main app entry point and Windows-specific code)
@@ -25,6 +26,8 @@ add_executable(capsicain_tests
 # Include directories for tests
 target_include_directories(capsicain_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/capsicain
+    ${CMAKE_SOURCE_DIR}/capsicain/core
+    ${CMAKE_SOURCE_DIR}/capsicain/domain
 )
 
 # Link Google Test
