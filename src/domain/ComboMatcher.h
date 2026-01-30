@@ -31,8 +31,11 @@ using VKeyCode = uint16_t;
 struct ComboKeyEvent {
     VKeyCode keyCode = 0;
     bool isDown = true;
-    
-    bool operator==(const ComboKeyEvent& other) const {
+
+    constexpr ComboKeyEvent() noexcept = default;
+    constexpr ComboKeyEvent(VKeyCode k, bool d) noexcept : keyCode(k), isDown(d) {}
+
+    constexpr bool operator==(const ComboKeyEvent& other) const noexcept {
         return keyCode == other.keyCode && isDown == other.isDown;
     }
 };
@@ -85,13 +88,13 @@ struct ComboMatchResult {
 
 /**
  * Pure function to check if a device matches the device pattern.
- * 
+ *
  * @param deviceMask Current device identifier
  * @param devAnd Required device bits (all must match)
  * @param devNot Excluded device bits (none can match)
  * @return true if device passes the check
  */
-inline bool deviceMatchesPattern(DEV deviceMask, DEV devAnd, DEV devNot) {
+constexpr inline bool deviceMatchesPattern(DEV deviceMask, DEV devAnd, DEV devNot) noexcept {
     // Special case: 0xFFFFFFFF with no exclusions matches any device (legacy default)
     if (devAnd == 0xFFFFFFFF && devNot == 0) {
         return true;
@@ -109,12 +112,12 @@ inline bool deviceMatchesPattern(DEV deviceMask, DEV devAnd, DEV devNot) {
 
 /**
  * Pure function to check if current modifier state matches a combo's pattern.
- * 
+ *
  * @param context Current state snapshot
  * @param rule The combo rule to test against
  * @return true if modifiers match the pattern
  */
-inline bool modifiersMatchPattern(const ComboMatchContext& context, const ComboRule& rule) {
+constexpr inline bool modifiersMatchPattern(const ComboMatchContext& context, const ComboRule& rule) noexcept {
     // Deadkey must match
     if (context.activeDeadkey != rule.deadkey) {
         return false;
@@ -154,7 +157,7 @@ inline bool modifiersMatchPattern(const ComboMatchContext& context, const ComboR
 
 /**
  * Pure function to find a matching combo from a list.
- * 
+ *
  * @param combos List of combo rules to search
  * @param context Current state snapshot
  * @param clearTappedOnMatch Whether to set shouldClearTapped in result
@@ -164,7 +167,7 @@ inline ComboMatchResult findMatchingCombo(
     const std::vector<ComboRule>& combos,
     const ComboMatchContext& context,
     bool clearTappedOnMatch = false
-) {
+) noexcept {
     ComboMatchResult result;
     
     for (size_t i = 0; i < combos.size(); ++i) {
@@ -198,12 +201,21 @@ inline ComboMatchResult findMatchingCombo(
 
 /**
  * ComboMatcher class - Stateless combo matching engine.
- * 
+ *
  * This class provides an object-oriented interface around the pure functions
  * above, useful for scenarios where you want to encapsulate combo list management.
  */
 class ComboMatcher {
 public:
+    // Rule of 5: Explicitly defaulted (stateless class)
+    ComboMatcher() noexcept = default;
+    ~ComboMatcher() noexcept = default;
+    ComboMatcher(const ComboMatcher&) noexcept = default;
+    ComboMatcher& operator=(const ComboMatcher&) noexcept = default;
+    ComboMatcher(ComboMatcher&&) noexcept = default;
+    ComboMatcher& operator=(ComboMatcher&&) noexcept = default;
+
+
     /**
      * Find a matching combo for a downstroke.
      */
@@ -212,7 +224,7 @@ public:
         const std::vector<ComboRule>& repeatCombos,
         const ComboMatchContext& context,
         bool isRepeat
-    ) const {
+    ) const noexcept {
         // First try regular down combos (clears tapped on match)
         ComboMatchResult result = findMatchingCombo(downCombos, context, true);
         if (result.matched) {
@@ -237,7 +249,7 @@ public:
         const ComboMatchContext& context,
         bool isTapped,
         bool isSlowTapped
-    ) const {
+    ) const noexcept {
         // Try regular up combos
         ComboMatchResult result = findMatchingCombo(upCombos, context, false);
         if (result.matched) {

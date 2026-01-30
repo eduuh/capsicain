@@ -98,6 +98,15 @@ struct TapDanceResult {
  */
 class TapDanceEngine {
 public:
+    // Rule of 5: Explicitly defaulted (has vector members)
+    TapDanceEngine() noexcept = default;
+    ~TapDanceEngine() = default;
+    TapDanceEngine(const TapDanceEngine&) = default;
+    TapDanceEngine& operator=(const TapDanceEngine&) = default;
+    TapDanceEngine(TapDanceEngine&&) noexcept = default;
+    TapDanceEngine& operator=(TapDanceEngine&&) noexcept = default;
+
+
     using TimePoint = std::chrono::steady_clock::time_point;
     
     /**

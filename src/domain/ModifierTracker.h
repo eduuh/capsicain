@@ -27,14 +27,22 @@ namespace capsicain {
  */
 class ModifierTracker {
 public:
+    // Rule of 5: Explicitly defaulted
+    ModifierTracker() noexcept = default;
+    ~ModifierTracker() noexcept = default;
+    ModifierTracker(const ModifierTracker&) noexcept = default;
+    ModifierTracker& operator=(const ModifierTracker&) noexcept = default;
+    ModifierTracker(ModifierTracker&&) noexcept = default;
+    ModifierTracker& operator=(ModifierTracker&&) noexcept = default;
+
     /**
      * @brief Update modifier state based on a key event
-     * 
+     *
      * @param vcode Virtual key code
      * @param isDownstroke true if key is being pressed
      * @param isTapped true if key was tapped
      */
-    void update(int vcode, bool isDownstroke, bool isTapped) {
+    void update(int vcode, bool isDownstroke, bool isTapped) noexcept {
         MOD modBitmask = getModifierBitmaskForVcode(vcode);
         
         if (modBitmask == 0) {
@@ -61,7 +69,7 @@ public:
     /**
      * @brief Clear tapped state for a specific modifier
      */
-    void clearTapped(int vcode) {
+    void clearTapped(int vcode) noexcept {
         MOD modBitmask = getModifierBitmaskForVcode(vcode);
         if (modBitmask != 0) {
             modifierTapped_ &= ~modBitmask;
@@ -71,14 +79,14 @@ public:
     /**
      * @brief Clear all tapped states
      */
-    void clearAllTapped() {
+    void clearAllTapped() noexcept {
         modifierTapped_ = 0;
     }
     
     /**
      * @brief Clear down state for a specific modifier
      */
-    void clearDown(int vcode) {
+    void clearDown(int vcode) noexcept {
         MOD modBitmask = getModifierBitmaskForVcode(vcode);
         if (modBitmask != 0) {
             modifierDown_ &= ~modBitmask;
@@ -88,7 +96,7 @@ public:
     /**
      * @brief Force a modifier to be considered "down"
      */
-    void forceDown(int vcode) {
+    void forceDown(int vcode) noexcept {
         MOD modBitmask = getModifierBitmaskForVcode(vcode);
         if (modBitmask != 0) {
             modifierForceDown_ |= modBitmask;
@@ -99,7 +107,7 @@ public:
     /**
      * @brief Clear a forced modifier
      */
-    void clearForced(int vcode) {
+    void clearForced(int vcode) noexcept {
         MOD modBitmask = getModifierBitmaskForVcode(vcode);
         if (modBitmask != 0) {
             modifierForceDown_ &= ~modBitmask;
@@ -109,7 +117,7 @@ public:
     /**
      * @brief Reset all modifier state
      */
-    void reset() {
+    void reset() noexcept {
         modifierDown_ = 0;
         modifierTapped_ = 0;
         modifierForceDown_ = 0;
@@ -118,58 +126,58 @@ public:
     }
     
     // Convenience query methods
-    bool isShiftDown() const {
+    bool isShiftDown() const noexcept {
         return (modifierDown_ & BITMASK_LSHIFT) || (modifierDown_ & BITMASK_RSHIFT);
     }
     
-    bool isLShiftDown() const {
+    bool isLShiftDown() const noexcept {
         return modifierDown_ & BITMASK_LSHIFT;
     }
     
-    bool isRShiftDown() const {
+    bool isRShiftDown() const noexcept {
         return modifierDown_ & BITMASK_RSHIFT;
     }
     
-    bool isCtrlDown() const {
+    bool isCtrlDown() const noexcept {
         return (modifierDown_ & BITMASK_LCTRL) || (modifierDown_ & BITMASK_RCTRL);
     }
     
-    bool isLCtrlDown() const {
+    bool isLCtrlDown() const noexcept {
         return modifierDown_ & BITMASK_LCTRL;
     }
     
-    bool isRCtrlDown() const {
+    bool isRCtrlDown() const noexcept {
         return modifierDown_ & BITMASK_RCTRL;
     }
     
-    bool isAltDown() const {
+    bool isAltDown() const noexcept {
         return (modifierDown_ & BITMASK_LALT) || (modifierDown_ & BITMASK_RALT);
     }
     
-    bool isLAltDown() const {
+    bool isLAltDown() const noexcept {
         return modifierDown_ & BITMASK_LALT;
     }
     
-    bool isRAltDown() const {
+    bool isRAltDown() const noexcept {
         return modifierDown_ & BITMASK_RALT;
     }
     
-    bool isWinDown() const {
+    bool isWinDown() const noexcept {
         return (modifierDown_ & BITMASK_LWIN) || (modifierDown_ & BITMASK_RWIN);
     }
     
-    bool isLWinDown() const {
+    bool isLWinDown() const noexcept {
         return modifierDown_ & BITMASK_LWIN;
     }
     
-    bool isRWinDown() const {
+    bool isRWinDown() const noexcept {
         return modifierDown_ & BITMASK_RWIN;
     }
     
     /**
      * @brief Check if a specific modifier is down
      */
-    bool isModifierDown(int vcode) const {
+    bool isModifierDown(int vcode) const noexcept {
         MOD modBitmask = getModifierBitmaskForVcode(vcode);
         return modBitmask != 0 && (modifierDown_ & modBitmask);
     }
@@ -177,7 +185,7 @@ public:
     /**
      * @brief Check if a specific modifier was tapped
      */
-    bool isModifierTapped(int vcode) const {
+    bool isModifierTapped(int vcode) const noexcept {
         MOD modBitmask = getModifierBitmaskForVcode(vcode);
         return modBitmask != 0 && (modifierTapped_ & modBitmask);
     }
@@ -190,7 +198,7 @@ public:
      * @param notMask None of these may be down
      * @return true if pattern matches
      */
-    bool matchesPattern(MOD andMask, MOD orMask, MOD notMask) const {
+    bool matchesPattern(MOD andMask, MOD orMask, MOD notMask) const noexcept {
         // All 'and' modifiers must be down
         if ((modifierDown_ & andMask) != andMask) {
             return false;
@@ -212,25 +220,25 @@ public:
     /**
      * @brief Check if tapped modifiers match a pattern
      */
-    bool matchesTappedPattern(MOD andMask) const {
+    bool matchesTappedPattern(MOD andMask) const noexcept {
         return (modifierTapped_ & andMask) == andMask;
     }
     
     // Accessors for raw bitmasks (for compatibility)
-    MOD getDownMask() const { return modifierDown_; }
-    MOD getTappedMask() const { return modifierTapped_; }
-    MOD getForcedMask() const { return modifierForceDown_; }
+    MOD getDownMask() const noexcept { return modifierDown_; }
+    MOD getTappedMask() const noexcept { return modifierTapped_; }
+    MOD getForcedMask() const noexcept { return modifierForceDown_; }
     
     // Deadkey support
-    void setDeadkey(uint8_t dk) { activeDeadkey_ = dk; }
+    void setDeadkey(uint8_t dk) noexcept { activeDeadkey_ = dk; }
     uint8_t getDeadkey() const { return activeDeadkey_; }
-    void clearDeadkey() { activeDeadkey_ = 0; }
+    void clearDeadkey() noexcept { activeDeadkey_ = 0; }
     
     // Tap-and-hold key tracking
-    void setTapHoldKey(int key) { tapAndHoldKey_ = key; }
-    int getTapHoldKey() const { return tapAndHoldKey_; }
-    void clearTapHoldKey() { tapAndHoldKey_ = -1; }
-    bool hasTapHoldKey() const { return tapAndHoldKey_ >= 0; }
+    void setTapHoldKey(int key) noexcept { tapAndHoldKey_ = key; }
+    int getTapHoldKey() const noexcept { return tapAndHoldKey_; }
+    void clearTapHoldKey() noexcept { tapAndHoldKey_ = -1; }
+    bool hasTapHoldKey() const noexcept { return tapAndHoldKey_ >= 0; }
     
 private:
     MOD modifierDown_ = 0;          ///< Bitmask of currently held modifiers

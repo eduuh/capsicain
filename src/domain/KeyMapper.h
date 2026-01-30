@@ -42,8 +42,11 @@ constexpr size_t MAX_VCODES = 256;
 struct KeyMapEvent {
     VKeyCode keyCode = SC_NOP;
     bool isDown = true;
-    
-    bool operator==(const KeyMapEvent& other) const {
+
+    constexpr KeyMapEvent() noexcept = default;
+    constexpr KeyMapEvent(VKeyCode k, bool d) noexcept : keyCode(k), isDown(d) {}
+
+    constexpr bool operator==(const KeyMapEvent& other) const noexcept {
         return keyCode == other.keyCode && isDown == other.isDown;
     }
 };
@@ -66,9 +69,9 @@ struct AlphaMapOptions {
 
 /**
  * Pure function to apply alpha key mapping.
- * 
+ *
  * @param inputKey The key to map
- * @param alphaMap Array mapping vcodes to their remapped values
+ * @param alphaMap Array mapping vcodes to their remapped values (can be nullptr)
  * @param options Mapping options
  * @param isModifierKey Whether the input key is a modifier
  * @param isCtrlDown Whether Ctrl is currently held
@@ -77,12 +80,12 @@ struct AlphaMapOptions {
  */
 inline AlphaMapResult applyAlphaMapping(
     VKeyCode inputKey,
-    const int* alphaMap,  // Array of MAX_VCODES elements
+    const int* alphaMap,  // Array of MAX_VCODES elements (nullable)
     const AlphaMapOptions& options,
     bool isModifierKey,
     bool isCtrlDown,
     bool isWinDown
-) {
+) noexcept {
     AlphaMapResult result;
     result.mappedKey = inputKey;
     result.wasRemapped = false;
@@ -133,10 +136,10 @@ struct RewireEntry {
     int outKey = REWIRE_UNDEFINED;      // Primary output key (-1 = no mapping)
     int tapKey = REWIRE_UNDEFINED;      // Key to send on tap (-1 = no tap action)
     int tapHoldKey = REWIRE_UNDEFINED;  // Key to send on tap-hold (-1 = no taphold action)
-    
-    bool hasOutput() const { return outKey >= 0; }
-    bool hasTap() const { return tapKey >= 0; }
-    bool hasTapHold() const { return tapHoldKey >= 0; }
+
+    constexpr bool hasOutput() const noexcept { return outKey >= 0; }
+    constexpr bool hasTap() const noexcept { return tapKey >= 0; }
+    constexpr bool hasTapHold() const noexcept { return tapHoldKey >= 0; }
 };
 
 /**
@@ -176,17 +179,17 @@ public:
 
 /**
  * Pure function to apply rewire mapping.
- * 
+ *
  * @param context Current key context
  * @param entry Rewire entry for this key
- * @param modQuery Interface for modifier queries
+ * @param modQuery Interface for modifier queries (nullable)
  * @return The rewire result
  */
 inline RewireResult applyRewireMapping(
     const RewireContext& context,
     const RewireEntry& entry,
     const IModifierQuery* modQuery = nullptr
-) {
+) noexcept {
     RewireResult result;
     result.outputKey = context.vcode;
     
@@ -281,12 +284,21 @@ inline RewireResult applyRewireMapping(
 
 /**
  * KeyMapper class - Combines alpha and rewire mapping.
- * 
+ *
  * This is an object-oriented facade over the pure functions,
  * useful when you want to encapsulate mapping tables.
  */
 class KeyMapper {
 public:
+    // Rule of 5: Explicitly defaulted (stateless class)
+    KeyMapper() noexcept = default;
+    ~KeyMapper() noexcept = default;
+    KeyMapper(const KeyMapper&) noexcept = default;
+    KeyMapper& operator=(const KeyMapper&) noexcept = default;
+    KeyMapper(KeyMapper&&) noexcept = default;
+    KeyMapper& operator=(KeyMapper&&) noexcept = default;
+
+
     /**
      * Apply alpha key mapping
      */
@@ -297,7 +309,7 @@ public:
         bool isModifierKey,
         bool isCtrlDown,
         bool isWinDown
-    ) const {
+    ) const noexcept {
         return applyAlphaMapping(inputKey, alphaMap, options, isModifierKey, isCtrlDown, isWinDown);
     }
     
@@ -308,7 +320,7 @@ public:
         const RewireContext& context,
         const RewireEntry& entry,
         const IModifierQuery* modQuery = nullptr
-    ) const {
+    ) const noexcept {
         return applyRewireMapping(context, entry, modQuery);
     }
 };

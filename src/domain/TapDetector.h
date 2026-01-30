@@ -19,8 +19,10 @@ struct TapResult {
     bool tappedSlow = false;    ///< Slow tap (key repeated before release)
     bool tapHoldMake = false;   ///< Tap-and-hold pattern (down-up-down)
     bool repeat = false;        ///< Key is auto-repeating
-    
-    void reset() {
+
+    constexpr TapResult() noexcept = default;
+
+    void reset() noexcept {
         tapped = false;
         tappedSlow = false;
         tapHoldMake = false;
@@ -50,9 +52,17 @@ struct TapResult {
  */
 class TapDetector {
 public:
+    // Rule of 5: Explicitly defaulted (stateless class)
+    TapDetector() noexcept = default;
+    ~TapDetector() noexcept = default;
+    TapDetector(const TapDetector&) noexcept = default;
+    TapDetector& operator=(const TapDetector&) noexcept = default;
+    TapDetector(TapDetector&&) noexcept = default;
+    TapDetector& operator=(TapDetector&&) noexcept = default;
+
     /**
      * @brief Analyze key events to detect tap patterns
-     * 
+     *
      * @param current Current key event being processed
      * @param prev1 Previous key event (most recent)
      * @param prev2 Key event before prev1
@@ -68,7 +78,7 @@ public:
         uint8_t currentState,
         uint8_t prev1State,
         uint8_t prev2State
-    ) const {
+    ) const noexcept {
         TapResult result;
         
         // Tapped key = key up, same as previous key, previous was key down
@@ -113,7 +123,7 @@ public:
     
     /**
      * @brief Simplified detection using KeyEvent only
-     * 
+     *
      * Use this when you don't have access to raw hardware state.
      * Derives state from KeyEvent.isDownstroke.
      */
@@ -121,7 +131,7 @@ public:
         const KeyEvent& current,
         const KeyEvent& prev1,
         const KeyEvent& prev2
-    ) const {
+    ) const noexcept {
         // Convert isDownstroke to state (0 = down, 1 = up)
         uint8_t currentState = current.isDownstroke ? 0 : 1;
         uint8_t prev1State = prev1.isDownstroke ? 0 : 1;

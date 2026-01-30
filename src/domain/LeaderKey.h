@@ -51,12 +51,21 @@ struct LeaderResult {
  */
 class LeaderKeyEngine {
 public:
+    // Rule of 5: Explicitly defaulted (has vector members)
+    LeaderKeyEngine() noexcept = default;
+    ~LeaderKeyEngine() = default;
+    LeaderKeyEngine(const LeaderKeyEngine&) = default;
+    LeaderKeyEngine& operator=(const LeaderKeyEngine&) = default;
+    LeaderKeyEngine(LeaderKeyEngine&&) noexcept = default;
+    LeaderKeyEngine& operator=(LeaderKeyEngine&&) noexcept = default;
+
+
     using TimePoint = std::chrono::steady_clock::time_point;
     
     /**
      * Configure the leader key
      */
-    void setLeaderKey(uint16_t keycode) {
+    void setLeaderKey(uint16_t keycode) noexcept {
         m_leaderKey = keycode;
     }
     
@@ -170,7 +179,7 @@ public:
     /**
      * Check if leader mode is active
      */
-    bool isActive() const {
+    bool isActive() const noexcept {
         return m_isActive;
     }
     

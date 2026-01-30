@@ -91,6 +91,15 @@ public:
  */
 class KeyProcessor {
 public:
+    // Rule of 5: Explicitly defaulted (has member objects)
+    KeyProcessor() noexcept = default;
+    ~KeyProcessor() noexcept = default;
+    KeyProcessor(const KeyProcessor&) = default;
+    KeyProcessor& operator=(const KeyProcessor&) = default;
+    KeyProcessor(KeyProcessor&&) noexcept = default;
+    KeyProcessor& operator=(KeyProcessor&&) noexcept = default;
+
+
     /**
      * Process a single key event through the full pipeline
      */
