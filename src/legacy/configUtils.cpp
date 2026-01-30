@@ -17,7 +17,14 @@
 #include "legacy/scancodes.h"
 #include "legacy/modifiers.h"
 
-using namespace std;
+// Selective using declarations
+using std::cout;
+using std::endl;
+using std::string;
+using std::vector;
+using std::map;
+using std::ifstream;
+using std::stringstream;
 
 // Helper: Remove comment from line (everything after '#')
 inline void removeComment(string& line)

@@ -4,8 +4,6 @@
 
 #include <iostream>
 
-using namespace std;
-
 // External function - the actual main loop logic stays in capsicain.cpp for now
 extern int capsicain_main_impl();
 

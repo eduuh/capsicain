@@ -9,6 +9,17 @@
 #include "legacy/utils.h"
 
 #include <iostream>
+#include <string>
+#include <vector>
+#include <map>
+
+// Selective using declarations (acceptable in .cpp files)
+using std::cout;
+using std::endl;
+using std::string;
+using std::vector;
+using std::map;
+using std::dec;
 
 // External declarations (from capsicain.cpp global scope)
 extern struct Options {
@@ -64,8 +75,6 @@ extern void playKeyEventSequence(std::vector<VKeyEvent> sequence);
 extern void sendVKeyEvent(VKeyEvent keyEvent, bool hold);
 extern std::map<uint8_t, Device>* getHardwareId(bool refresh);
 extern void handleConfigSwitch(int scancode);
-
-using namespace std;
 
 CommandHandler::CommandHandler()
 {

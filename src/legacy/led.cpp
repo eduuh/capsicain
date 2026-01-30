@@ -1,4 +1,4 @@
-// bootstrapped with helpful pointers from 
+// bootstrapped with helpful pointers from
 //https://www.codeguru.com/cpp/w-p/system/keyboard/article.php/c2825/Manipulating-the-Keyboard-Lights-in-Windows-NT.htm
 
 #include "platform/pch.h"
@@ -6,6 +6,7 @@
 #include <winioctl.h>
 #include "legacy/led.h"
 #include <iostream>
+#include <vector>
 #include "legacy/capsicain_legacy.h"
 #include "legacy/scancodes.h"
 
@@ -72,12 +73,11 @@ bool WINAPI setLED(UINT ledKeySC, bool ledOn)
         std::cout << std::endl << "ERROR: GetRawInputDeviceList() found no keyboards";
         return false;
     }
-    pRawInputDeviceList = (RAWINPUTDEVICELIST*)malloc((size_t)dlSize * nDevices);
-    if (pRawInputDeviceList == NULL)
-    {
-        std::cout << std::endl << "ERROR: Cannot malloc for device list";
-        return false;
-    }
+
+    // Use std::vector instead of malloc for automatic memory management
+    std::vector<RAWINPUTDEVICELIST> deviceList(nDevices);
+    pRawInputDeviceList = deviceList.data();
+
     GetRawInputDeviceList(pRawInputDeviceList, &nDevices,
         sizeof(RAWINPUTDEVICELIST));
 
@@ -109,9 +109,7 @@ bool WINAPI setLED(UINT ledKeySC, bool ledOn)
         }
     }
 
-    // after the job, free the RAWINPUTDEVICELIST
-    free(pRawInputDeviceList);
-
+    // Vector automatically frees memory when it goes out of scope (RAII)
     return true;
 }
 

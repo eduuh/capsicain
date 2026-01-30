@@ -47,7 +47,20 @@ struct Ahk
     AHKFUNCTION postFunction;
 } ahk;
 
-using namespace std;
+// Selective using declarations
+using std::cout;
+using std::endl;
+using std::string;
+using std::stringstream;
+using std::vector;
+using std::map;
+using std::set;
+using std::hex;
+using std::dec;
+using std::setw;
+using std::to_string;
+using std::uppercase;
+namespace chrono = std::chrono;
 
 // Global ConsoleUI pointer for legacy compatibility
 static ConsoleUI* g_consoleUI = nullptr;

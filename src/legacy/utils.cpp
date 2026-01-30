@@ -11,8 +11,19 @@
 #include <locale>
 #include "utils.h"
 
-
-using namespace std;
+// Selective using declarations
+using std::cout;
+using std::endl;
+using std::string;
+using std::vector;
+using std::ifstream;
+using std::ofstream;
+using std::stringstream;
+using std::istreambuf_iterator;
+using std::setw;
+using std::setfill;
+using std::hex;
+namespace chrono = std::chrono;
 
 void raise_process_priority(void)
 {

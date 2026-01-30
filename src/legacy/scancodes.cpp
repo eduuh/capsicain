@@ -8,7 +8,11 @@
 #include "platform/constants.h"
 #include "legacy/utils.h"
 
-using namespace std;
+// Selective using declarations
+using std::cout;
+using std::endl;
+using std::string;
+using std::hex;
 
 //returns -1 if label is not found, or if given SC_ string is not a number,
 //otherwise an 8bit scancode (can cast to unsigned char without checks)

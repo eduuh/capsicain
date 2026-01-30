@@ -10,7 +10,18 @@
 #include "legacy/modifiers.h"
 #include "platform/interception.h"
 
-using namespace std;
+// Selective using declarations (acceptable in .cpp files)
+using std::cout;
+using std::endl;
+using std::string;
+using std::dec;
+using std::hex;
+using std::setw;
+using std::left;
+using std::right;
+using std::uppercase;
+using std::map;
+using std::vector;
 
 // External global state (accessed by print functions)
 extern struct Options {
