@@ -163,7 +163,7 @@ bool readSanitizeIniFile(std::vector<string> &iniLines)
 
 
 //Returns empty vector if section does not exist, or is empty
-std::vector<std::string> getSectionFromIni(std::string sectionName, std::vector<std::string> iniContent)
+std::vector<std::string> getSectionFromIni(const std::string& sectionName, const std::vector<std::string>& iniContent)
 {
     std::vector<std::string> sectionContent;
     string sectName = stringToLower(sectionName);
@@ -187,47 +187,47 @@ std::vector<std::string> getSectionFromIni(std::string sectionName, std::vector<
     return sectionContent;
 }
 //Returns all lines starting with tag, with the tag removed, or empty vector if none
-std::vector<std::string> getTaggedLinesFromIni(std::string tag, std::vector<std::string> iniContent)
+std::vector<std::string> getTaggedLinesFromIni(const std::string& tag, const std::vector<std::string>& iniContent)
 {
     std::vector<std::string> taggedContent;
-    tag = stringToLower(tag);
+    string tagLower = stringToLower(tag);
     string line;
     for (string line : iniContent)
     {
-        if (stringCopyFirstToken(line) == tag)
+        if (stringCopyFirstToken(line) == tagLower)
             taggedContent.push_back(stringGetRestBehindFirstToken(line));
     }
     return taggedContent;
 }
 
-bool configHasKey(string key, const vector<string>& sectionLines)
+bool configHasKey(const string& key, const vector<string>& sectionLines)
 {
-    key = stringToLower(key);
+    string keyLower = stringToLower(key);
     for (const auto& line : sectionLines)
     {
-        if (stringCopyFirstToken(line) == key)
+        if (stringCopyFirstToken(line) == keyLower)
             return true;
     }
     return false;
 }
 
-bool configHasTaggedKey(string tag, string key, const vector<string>& sectionLines)
+bool configHasTaggedKey(const string& tag, const string& key, const vector<string>& sectionLines)
 {
-    tag = stringToLower(tag);
-    key = stringToLower(key);
+    string tagLower = stringToLower(tag);
+    string keyLower = stringToLower(key);
     for (const auto& line : sectionLines)
     {
-        if (stringCopyFirstToken(line) == tag
-            && stringCopyFirstToken(stringGetRestBehindFirstToken(line)) == key)
+        if (stringCopyFirstToken(line) == tagLower
+            && stringCopyFirstToken(stringGetRestBehindFirstToken(line)) == keyLower)
             return true;
     }
     return false;
 }
 
-bool getStringValueForTaggedKey(string tag, string key, string& value, const vector<string>& sectionLines)
+bool getStringValueForTaggedKey(const string& tag, const string& key, string& value, const vector<string>& sectionLines)
 {
-    tag = stringToLower(tag);
-    key = stringToLower(key);
+    string tagLower = stringToLower(tag);
+    string keyLower = stringToLower(key);
     vector<string> splitline;
     value = "";
     for (const auto& line : sectionLines)
@@ -235,7 +235,7 @@ bool getStringValueForTaggedKey(string tag, string key, string& value, const vec
         splitline = stringSplit(line, ' ');
         if (splitline.size() < 3)
             continue;
-        if (splitline.at(0) == tag && splitline.at(1) == key)
+        if (splitline.at(0) == tagLower && splitline.at(1) == keyLower)
         {
             for (size_t i = 2; i < splitline.size(); i++)
                 value += splitline.at(i) + " ";
@@ -246,12 +246,12 @@ bool getStringValueForTaggedKey(string tag, string key, string& value, const vec
     return false;
 }
 
-bool getStringValueForKey(string key, string& value, const vector<string>& sectionLines)
+bool getStringValueForKey(const string& key, string& value, const vector<string>& sectionLines)
 {
-    key = stringToLower(key);
+    string keyLower = stringToLower(key);
     for (const auto& line : sectionLines)
     {
-        if (stringStartsWith(line, key))
+        if (stringStartsWith(line, keyLower))
         {
             value = stringGetRestBehindFirstToken(line);
             return true;
@@ -260,7 +260,7 @@ bool getStringValueForKey(string key, string& value, const vector<string>& secti
     return false;
 }
 
-bool getIntValueForTaggedKey(string tag, string key, int& value, const vector<string>& sectionLines)
+bool getIntValueForTaggedKey(const string& tag, const string& key, int& value, const vector<string>& sectionLines)
 {
     string strval;
     if (!getStringValueForTaggedKey(tag, key, strval, sectionLines))
@@ -269,11 +269,11 @@ bool getIntValueForTaggedKey(string tag, string key, int& value, const vector<st
     return stringToInt(strval, value);
 }
 
-bool getIntValueForKey(string key, int& value, const vector<string>& sectionLines)
+bool getIntValueForKey(const string& key, int& value, const vector<string>& sectionLines)
 {
-    key = stringToLower(key);
+    string keyLower = stringToLower(key);
     string strval;
-    if (!getStringValueForKey(key, strval, sectionLines))
+    if (!getStringValueForKey(keyLower, strval, sectionLines))
         return false;
 
     return stringToInt(strval, value);
@@ -281,7 +281,7 @@ bool getIntValueForKey(string key, int& value, const vector<string>& sectionLine
 
 
 // parse "a b c ALPHA_TO x y z"
-bool parseKeywordsAlpha_FromTo(std::string alpha_to, int (&alphamap)[MAX_VCODES], std::string scLabels[])
+bool parseKeywordsAlpha_FromTo(const std::string& alpha_to, int (&alphamap)[MAX_VCODES], std::string scLabels[])
 {
     size_t idx1 = alpha_to.find(stringToLower(INI_TAG_ALPHA_TO));
     if (idx1 == string::npos)
@@ -318,7 +318,7 @@ bool parseKeywordsAlpha_FromTo(std::string alpha_to, int (&alphamap)[MAX_VCODES]
 
 // parse "REWIRE A B"  or  "REWIRE A B C D". Does not touch optional keys that are not defined in the line.
 // the // symbol stands for -1 "do nothing with this"
-bool parseKeywordRewire(std::string line, int &keyA, int &keyB, int &keyC, int &keyD, std::string scLabels[])
+bool parseKeywordRewire(const std::string& line, int &keyA, int &keyB, int &keyC, int &keyD, std::string scLabels[])
 {
     vector<string> labels = stringSplit(line, ' ');
     if (labels.size() < 2 && labels.size() > 4)
@@ -435,7 +435,7 @@ bool parseFunctionKey(std::string funcParams, std::string * scLabels, std::vecto
     return false;
 }
 
-bool parseFunctionCombo(std::string funcParams, std::string * scLabels, std::vector<VKeyEvent> &strokeSeq, bool releaseTemp, int times)
+bool parseFunctionCombo(const std::string& funcParams, std::string * scLabels, std::vector<VKeyEvent> &strokeSeq, bool releaseTemp, int times)
 {
     vector<int> keys;
     if (!parseComboParams(funcParams, keys, scLabels))
@@ -458,7 +458,7 @@ bool parseFunctionCombo(std::string funcParams, std::string * scLabels, std::vec
     return true;
 }
 
-bool parseFunctionHold(std::string funcParams, std::string * scLabels, std::vector<VKeyEvent> &strokeSeq, bool releaseAll, bool holdMods)
+bool parseFunctionHold(const std::string& funcParams, std::string * scLabels, std::vector<VKeyEvent> &strokeSeq, bool releaseAll, bool holdMods)
 {
     vector<int> keys;
     if (!parseComboParams(funcParams, keys, scLabels))
@@ -513,7 +513,7 @@ DEV parseDeviceMask(string devstr, char filter) {
 //parse {deadkey-x} keyLabel  [&|^t ....] > function(param)
 //returns false if the rule is not valid.
 //this translates functions() in the .ini to key sequences (usually with special VK_CPS keys)
-bool parseKeywordCombo(std::string line, int &key, MOD(&mods)[6], DEV(&devs)[2], std::vector<VKeyEvent> &strokeSequence, std::string scLabels[], std::string defaultFunction)
+bool parseKeywordCombo(std::string line, int &key, MOD(&mods)[6], DEV(&devs)[2], std::vector<VKeyEvent> &strokeSequence, std::string scLabels[], const std::string& defaultFunction)
 {
     string strkey = stringCutFirstToken(line);
     if (strkey.length() < 1)

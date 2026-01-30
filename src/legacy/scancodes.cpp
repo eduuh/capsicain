@@ -16,7 +16,7 @@ using std::hex;
 
 //returns -1 if label is not found, or if given SC_ string is not a number,
 //otherwise an 8bit scancode (can cast to unsigned char without checks)
-int getVcode(string label, string* arr)
+int getVcode(const string& label, string* arr)
 {
     string ucLabel = stringToUpper(label);
     for (int i = 0; i < MAX_VCODES; i++)
@@ -27,7 +27,7 @@ int getVcode(string label, string* arr)
     return -1;
 }
 
-void checkAddLabel(int index, string label, string arr[])
+void checkAddLabel(int index, const string& label, string arr[])
 {
     if (index >= MAX_VCODES)
     {

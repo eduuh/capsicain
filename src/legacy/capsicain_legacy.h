@@ -100,4 +100,4 @@ void killExecutableByPath(std::string path);
 
 void loadAHK();
 void unloadAHK();
-void sendAHK(std::string msg);
+void sendAHK(const std::string& msg);

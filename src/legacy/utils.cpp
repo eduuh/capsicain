@@ -30,7 +30,7 @@ void raise_process_priority(void)
     SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
 }
 
-void copyToClipBoard(std::string text)
+void copyToClipBoard(const std::string& text)
 {
     const char* output = text.c_str();
     const size_t len = strlen(output) + 1;
@@ -50,9 +50,11 @@ void copyToClipBoard(std::string text)
     CloseClipboard();
 }
 
-DWORD FindProcessId(string processName)
+DWORD FindProcessId(const string& processName)
 {
-    char *procNameChar = &processName[0u];
+    // Make a mutable copy since we need to modify it
+    string processNameCopy = processName;
+    char *procNameChar = &processNameCopy[0u];
     char* p = strrchr(procNameChar, '\\');
     if (p)
         procNameChar = p + 1;
@@ -84,7 +86,7 @@ DWORD FindProcessId(string processName)
     return 0;
 }
 
-string startProgram(string processName, string dir)
+string startProgram(const string& processName, const string& dir)
 {
     string ret = "";
     string path = dir + "\\" + processName;
@@ -103,7 +105,7 @@ string startProgram(string processName, string dir)
     return ret;
 }
 
-string startProgramSameFolder(string processName)
+string startProgramSameFolder(const string& processName)
 {
     char buffer[MAX_PATH];
     GetModuleFileNameA(NULL, buffer, sizeof(buffer));
@@ -128,7 +130,7 @@ BOOL CALLBACK TerminateAppEnum(HWND hwnd, LPARAM lParam)
 
 // Finds a process by its name ("theapp.exe")
 // Sends a "Close please" msg, if it is still running it kills it.
-void closeOrKillProgram(string processName)
+void closeOrKillProgram(const string& processName)
 {
     DWORD timeoutMS = 1000;
 
@@ -179,19 +181,21 @@ unsigned long timeBetweenTimepointsUS(std::chrono::steady_clock::time_point time
 }
 
 //String stuff
-bool stringStartsWith(string haystack, string needle)
+bool stringStartsWith(const string& haystack, const string& needle)
 {
     return (haystack.compare(0, needle.length(), needle) == 0);
 }
-std::string stringToLower(std::string str)
+std::string stringToLower(const std::string& str)
 {
-    std::transform(str.begin(), str.end(), str.begin(), ::tolower);
-    return str;
+    std::string result = str;
+    std::transform(result.begin(), result.end(), result.begin(), ::tolower);
+    return result;
 }
-std::string stringToUpper(std::string str)
+std::string stringToUpper(const std::string& str)
 {
-    std::transform(str.begin(), str.end(), str.begin(), ::toupper);
-    return str;
+    std::string result = str;
+    std::transform(result.begin(), result.end(), result.begin(), ::toupper);
+    return result;
 }
 
 std::vector<string> stringSplit(const std::string &line, char delimiter)
@@ -208,7 +212,7 @@ std::vector<string> stringSplit(const std::string &line, char delimiter)
     return res;
 }
 
-bool stringToInt(string strval, int &result)
+bool stringToInt(const string& strval, int &result)
 {
     try
     {
@@ -244,27 +248,29 @@ std::string stringCutFirstToken(std::string& line)
     return res;
 }
 //trim left, then copy first token
-std::string stringCopyFirstToken(std::string line)
+std::string stringCopyFirstToken(const std::string& line)
 {
-    line.erase(0, line.find_first_not_of(' '));
-    size_t idx = line.find_first_of(" ");
+    std::string result = line;
+    result.erase(0, result.find_first_not_of(' '));
+    size_t idx = result.find_first_of(" ");
     if (idx == string::npos)
-        idx = line.length();
-    return line.substr(0, idx);
+        idx = result.length();
+    return result.substr(0, idx);
 }
-std::string stringGetLastToken(std::string line)
+std::string stringGetLastToken(const std::string& line)
 {
     return line.substr(line.find_last_of(' ') + 1);
 }
-std::string stringGetRestBehindFirstToken(std::string line)
+std::string stringGetRestBehindFirstToken(const std::string& line)
 {
-    line.erase(0, line.find_first_not_of(' '));
-    size_t idx = line.find_first_of(" ");
+    std::string result = line;
+    result.erase(0, result.find_first_not_of(' '));
+    size_t idx = result.find_first_of(" ");
     if (idx == string::npos)
         return("");
-    line = line.substr(idx);
-    line.erase(0, line.find_first_not_of(' '));
-    return line;
+    result = result.substr(idx);
+    result.erase(0, result.find_first_not_of(' '));
+    return result;
 }
 bool stringReplace(std::string& haystack, const std::string& needle, const std::string& newneedle) 
 {

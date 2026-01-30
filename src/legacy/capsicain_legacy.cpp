@@ -262,7 +262,7 @@ struct ProfilingTimer
 static const struct ProfilingTimer defaultProfiler;
 
 string errorLog = "";
-void error(string txt)
+void error(const string& txt)
 {
     cout << endl << "ERROR: " << txt << endl;
     errorLog += "\r\n" + txt;
@@ -2039,7 +2039,7 @@ bool runExecutable(Executable &exe)
     return ret;
 }
 
-void sendAHK(std::string msg)
+void sendAHK(const std::string& msg)
 {
     if (!ahk.handle)
     {

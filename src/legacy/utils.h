@@ -4,26 +4,26 @@
 #include <vector>
 
 void raise_process_priority(void);
-void copyToClipBoard(std::string text);
-std::string startProgram(std::string processname, std::string dir);
-std::string startProgramSameFolder(std::string path);
-void closeOrKillProgram(std::string processName);
-DWORD FindProcessId(std::string processName);
+void copyToClipBoard(const std::string& text);
+std::string startProgram(const std::string& processname, const std::string& dir);
+std::string startProgramSameFolder(const std::string& path);
+void closeOrKillProgram(const std::string& processName);
+DWORD FindProcessId(const std::string& processName);
 
 unsigned long timeSinceTimepointMS(std::chrono::steady_clock::time_point timepoint);
 unsigned long timeSinceTimepointUS(std::chrono::steady_clock::time_point timepoint);
 std::chrono::steady_clock::time_point timeGetTimepointNow();
 unsigned long timeBetweenTimepointsUS(std::chrono::steady_clock::time_point timepoint1, std::chrono::steady_clock::time_point timepoint2);
 
-bool stringStartsWith(std::string haystack, std::string needle);
-std::string stringGetLastToken(std::string line);
-std::string stringGetRestBehindFirstToken(std::string line);
+bool stringStartsWith(const std::string& haystack, const std::string& needle);
+std::string stringGetLastToken(const std::string& line);
+std::string stringGetRestBehindFirstToken(const std::string& line);
 std::string stringCutFirstToken(std::string& line);
-std::string stringCopyFirstToken(std::string line);
-std::string stringToLower(std::string str);
-std::string stringToUpper(std::string str);
+std::string stringCopyFirstToken(const std::string& line);
+std::string stringToLower(const std::string& str);
+std::string stringToUpper(const std::string& str);
 std::vector<std::string> stringSplit(const std::string &line, char delimiter);
-bool stringToInt(std::string strval, int& result);
+bool stringToInt(const std::string& strval, int& result);
 bool stringReplace(std::string& haystack, const std::string& needle, const std::string& newneedle);
 std::string stringIntToHex(const unsigned int i, unsigned int minLength);
 BOOL CALLBACK TerminateAppEnum(HWND hwnd, LPARAM lParam);
