@@ -54,10 +54,10 @@ main()
 ┌─────────────────────────────────────────────────────────┐
 │                     Domain Layer                         │
 │  KeyProcessor - Core key transformation logic           │
-│  ComboMatcher - Evaluates combo rules                   │
-│  TapDetector - Detects tap/hold/slow-tap                │
-│  ModifierTracker - Tracks modifier state                │
-│  AlphaMapper - Character layout remapping               │
+│  ComboMatcher - Evaluates combo rules ✅                │
+│  TapDetector - Detects tap/hold/slow-tap ✅             │
+│  ModifierTracker - Tracks modifier state ✅             │
+│  KeyMapper - Alpha + rewire remapping ✅                │
 └─────────────────────────────────────────────────────────┘
                            │
 ┌─────────────────────────────────────────────────────────┐
@@ -83,12 +83,11 @@ capsicain/
 │   │   └── Types.h                 # Common types (MOD, DEV, etc.)
 │   │
 │   ├── domain/                     # Business logic (pure functions)
-│   │   ├── KeyProcessor.h/.cpp     # Main processing pipeline
-│   │   ├── ComboMatcher.h/.cpp     # Rule matching engine
-│   │   ├── TapDetector.h/.cpp      # Tap/hold detection
-│   │   ├── ModifierTracker.h/.cpp  # Modifier state machine
-│   │   ├── AlphaMapper.h/.cpp      # Alpha key remapping
-│   │   └── RewireMapper.h/.cpp     # Rewire table logic
+│   │   ├── TapDetector.h           # Tap/hold detection ✅
+│   │   ├── ModifierTracker.h       # Modifier state machine ✅
+│   │   ├── ComboMatcher.h          # Rule matching engine ✅
+│   │   ├── KeyMapper.h             # Alpha + rewire mapping ✅
+│   │   └── KeyProcessor.h/.cpp     # Main processing pipeline (TODO)
 │   │
 │   ├── services/                   # Application services
 │   │   ├── KeyProcessingService.h/.cpp
@@ -138,9 +137,9 @@ capsicain/
 - [ ] Extract `normalizeLine()`, `checkSyntax()` from configUtils
 
 ### Phase 2: Create Domain Objects
-- [ ] Create `KeyEvent` struct (currently `VKeyEvent`)
-- [ ] Create `ProcessingContext` to replace `loopState`
-- [ ] Create `ModifierState` class with methods (not just struct)
+- [x] Create `KeyEvent` struct (see `core/KeyEvent.h`)
+- [x] Create `ProcessingContext` to replace `loopState` (see `core/ProcessingContext.h`)
+- [x] Create `ModifierState` class with methods (see `domain/ModifierTracker.h`)
 - [ ] Create `Config` class to hold all config data
 
 ### Phase 3: Create Interfaces for I/O
@@ -150,11 +149,11 @@ capsicain/
 - [ ] Create `MockInputDriver` for testing
 
 ### Phase 4: Extract Processing Logic
-- [ ] Extract `detectTapping()` → `TapDetector` class
-- [ ] Extract `processModifierState()` → `ModifierTracker` class
-- [ ] Extract `processCombos()` → `ComboMatcher` class
-- [ ] Extract `processMapAlphaKeys()` → `AlphaMapper` class
-- [ ] Extract `processRewireScancodeToVirtualcode()` → `RewireMapper` class
+- [x] Extract `detectTapping()` → `TapDetector` class (14 tests)
+- [x] Extract `processModifierState()` → `ModifierTracker` class (27 tests)
+- [x] Extract `processCombos()` → `ComboMatcher` class (27 tests)
+- [x] Extract `processMapAlphaKeys()` → `KeyMapper::mapAlpha()` (11 tests)
+- [x] Extract `processRewireScancodeToVirtualcode()` → `KeyMapper::mapRewire()` (13 tests)
 
 ### Phase 5: Create Processing Pipeline
 - [ ] Create `KeyProcessor` that composes all mappers
