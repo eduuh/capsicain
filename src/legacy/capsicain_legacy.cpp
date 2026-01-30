@@ -165,59 +165,64 @@ struct InterceptionState
     InterceptionDevice lastKeyboard = 0;
 } interceptionState;
 
+// ============================================================================
+// DEPRECATED GLOBAL VARIABLES (Phase 5: Replaced by Services)
+// ============================================================================
+// These global variables have been replaced by proper service classes:
+// - GlobalState → RuntimeStateService (accessed via g_runtimeState)
+// - ModifierState → ModifierTracker (encapsulated in KeyProcessingService)
+// - LoopState → ProcessingContext (encapsulated in KeyProcessingService)
+//
+// The declarations below are DEPRECATED and only kept for legacy functions
+// that haven't been fully refactored yet (e.g., processMessyKeys, betaTest).
+// They are NO LONGER USED in the main processing path.
+// ============================================================================
+
 struct GlobalState
 {
     bool capsicainOn = true;
-
     int  activeConfig = 0;
     string activeConfigName = DEFAULT_ACTIVE_CONFIG_NAME;
-    int previousConfig = 1; // switch to this on func(CONFIGPREVIOUS)
-
+    int previousConfig = 1;
     bool realEscapeIsDown = false;
-
     string deviceIdKeyboard = "";
     string includeDeviceId = "";
     string excludeDeviceId = "";
-
     bool deviceIsAppleKeyboard = false;
-
-    int keysDownSentCounter = 0;  //tracks how many keys are actually down that Windows knows about
-    std::array<bool, 256> keysDownSent{};  //Remember all forwarded to Windows. Sent keys must be 8 bit
-    std::array<bool, 256> keysDownTempReleased{};  //Remember all keys that were temporarily released, e.g. to send an Alt-Numpad combo
-    std::array<set<int>, VK_MAX> holdKeys;  //Remember all replaced hold() keys while the physical key is still down
-
+    int keysDownSentCounter = 0;
+    std::array<bool, 256> keysDownSent{};
+    std::array<bool, 256> keysDownTempReleased{};
+    std::array<set<int>, VK_MAX> holdKeys;
     bool secretSequenceRecording = false;
     bool secretSequencePlayback = false;
-    int recordingMacro = -1; //-1: not recording. 1..MAX_SIMPLE_MACROS : this is currently recording. 0=currently recording the 'hard' ESC+J macro
-    std::array<vector<VKeyEvent>, MAX_NUM_MACROS> recordedMacros;  // [0] stores the 'hard' macro
-} globalState;
+    int recordingMacro = -1;
+    std::array<vector<VKeyEvent>, MAX_NUM_MACROS> recordedMacros;
+} globalState;  // DEPRECATED: Use g_runtimeState instead
 static const struct GlobalState defaultGlobalState;
 
 struct ModifierState
 {
-    unsigned char activeDeadkey = 0;  //it's not really a modifier though...
+    unsigned char activeDeadkey = 0;
     MOD modifierDown = 0;
     MOD modifierTapped = 0;
     MOD modifierForceDown = 0;
     vector<VKeyEvent> modsTempAltered;
-    int tapAndHoldKey = -1; //remember the tap-and-hold key as long as it is down
-} modifierState;
+    int tapAndHoldKey = -1;
+} modifierState;  // DEPRECATED: Use ModifierTracker in KeyProcessingService
 static const struct ModifierState defaultModifierState;
 
 struct LoopState
 {
-    unsigned char scancode = SC_NOP; //hardware code sent by Interception
-    int vcode = -1; //key code used internally; equals scancode or a Virtual code > FF
+    unsigned char scancode = SC_NOP;
+    int vcode = -1;
     bool isDownstroke = false;
     bool isModifier = false;
     bool tapped = false;
-    bool tappedSlow = false;  //autorepeat set in before key release
-    bool tapHoldMake = false;  //tap-and-hold action (like LAlt > mod12 // LAlt)
+    bool tappedSlow = false;
+    bool tapHoldMake = false;
     bool repeat = false;
-
     vector<VKeyEvent> resultingVKeyEventSequence;
-
-} loopState;
+} loopState;  // DEPRECATED: Use ProcessingContext in KeyProcessingService
 static const struct LoopState defaultLoopState;
 
 struct ProfilingTimer
