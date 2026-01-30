@@ -25,7 +25,7 @@ using std::setfill;
 using std::hex;
 namespace chrono = std::chrono;
 
-void raise_process_priority(void)
+void raise_process_priority(void) noexcept
 {
     SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
 }
@@ -114,7 +114,7 @@ string startProgramSameFolder(const string& processName)
     return startProgram(processName, homedir);
 }
 
-BOOL CALLBACK TerminateAppEnum(HWND hwnd, LPARAM lParam)
+BOOL CALLBACK TerminateAppEnum(HWND hwnd, LPARAM lParam) noexcept
 {
     DWORD dwID;
 
@@ -162,36 +162,36 @@ void closeOrKillProgram(const string& processName)
 }
 
 //time stuff
-unsigned long timeSinceTimepointMS(chrono::steady_clock::time_point timepoint)
+unsigned long timeSinceTimepointMS(chrono::steady_clock::time_point timepoint) noexcept
 {
     return (unsigned long)chrono::duration_cast<chrono::milliseconds>(std::chrono::steady_clock::now() - timepoint).count();
 }
-unsigned long timeSinceTimepointUS(chrono::steady_clock::time_point timepoint)
+unsigned long timeSinceTimepointUS(chrono::steady_clock::time_point timepoint) noexcept
 {
     return (unsigned long)chrono::duration_cast<chrono::microseconds>(std::chrono::steady_clock::now() - timepoint).count();
 }
-std::chrono::steady_clock::time_point timeGetTimepointNow()
+std::chrono::steady_clock::time_point timeGetTimepointNow() noexcept
 {
     return std::chrono::steady_clock::now();
 }
-unsigned long timeBetweenTimepointsUS(std::chrono::steady_clock::time_point timepoint1, std::chrono::steady_clock::time_point timepoint2)
+unsigned long timeBetweenTimepointsUS(std::chrono::steady_clock::time_point timepoint1, std::chrono::steady_clock::time_point timepoint2) noexcept
 {
     unsigned long dura = (unsigned long) std::chrono::duration_cast<std::chrono::microseconds>(timepoint2 - timepoint1).count();
     return dura;
 }
 
 //String stuff
-bool stringStartsWith(const string& haystack, const string& needle)
+bool stringStartsWith(const string& haystack, const string& needle) noexcept
 {
     return (haystack.compare(0, needle.length(), needle) == 0);
 }
-std::string stringToLower(const std::string& str)
+std::string stringToLower(const std::string& str) noexcept
 {
     std::string result = str;
     std::transform(result.begin(), result.end(), result.begin(), ::tolower);
     return result;
 }
-std::string stringToUpper(const std::string& str)
+std::string stringToUpper(const std::string& str) noexcept
 {
     std::string result = str;
     std::transform(result.begin(), result.end(), result.begin(), ::toupper);
@@ -248,7 +248,7 @@ std::string stringCutFirstToken(std::string& line)
     return res;
 }
 //trim left, then copy first token
-std::string stringCopyFirstToken(const std::string& line)
+std::string stringCopyFirstToken(const std::string& line) noexcept
 {
     std::string result = line;
     result.erase(0, result.find_first_not_of(' '));
@@ -257,11 +257,11 @@ std::string stringCopyFirstToken(const std::string& line)
         idx = result.length();
     return result.substr(0, idx);
 }
-std::string stringGetLastToken(const std::string& line)
+std::string stringGetLastToken(const std::string& line) noexcept
 {
     return line.substr(line.find_last_of(' ') + 1);
 }
-std::string stringGetRestBehindFirstToken(const std::string& line)
+std::string stringGetRestBehindFirstToken(const std::string& line) noexcept
 {
     std::string result = line;
     result.erase(0, result.find_first_not_of(' '));
@@ -272,7 +272,7 @@ std::string stringGetRestBehindFirstToken(const std::string& line)
     result.erase(0, result.find_first_not_of(' '));
     return result;
 }
-bool stringReplace(std::string& haystack, const std::string& needle, const std::string& newneedle) 
+bool stringReplace(std::string& haystack, const std::string& needle, const std::string& newneedle) noexcept
 {
     size_t start_pos = haystack.find(needle);
     if (start_pos == std::string::npos)

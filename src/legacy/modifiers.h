@@ -7,15 +7,15 @@
 const int NUMBER_OF_MODIFIERS = 32;
 using MOD = uint32_t;
 
-MOD getModifierBitmaskForVcode(int vcode);
+MOD getModifierBitmaskForVcode(int vcode) noexcept;
 
-unsigned short getModifierForBitmask(MOD bitmask);
+unsigned short getModifierForBitmask(MOD bitmask) noexcept;
 
-bool isModifier(int vcode);
+bool isModifier(int vcode) noexcept;
 
-bool isRealModifier(int vcode);
+bool isRealModifier(int vcode) noexcept;
 
-bool isVirtualModifier(int vcode);
+bool isVirtualModifier(int vcode) noexcept;
 
 // Modern C++ constexpr constants (formerly macros)
 constexpr uint32_t BITMASK_LSHIFT  = 0x001;

@@ -26,7 +26,7 @@ MOD modifierToBitmask[2][NUMBER_OF_MODIFIERS] =
 };
 
 //returns 0 if vcode is not a modifier
-MOD getModifierBitmaskForVcode(int vcode)
+MOD getModifierBitmaskForVcode(int vcode) noexcept
 {
     if (vcode < 0)
         return 0;
@@ -36,7 +36,7 @@ MOD getModifierBitmaskForVcode(int vcode)
             return modifierToBitmask[1][i];
     return 0;
 }
-unsigned short getModifierForBitmask(MOD bitmask)
+unsigned short getModifierForBitmask(MOD bitmask) noexcept
 {
     for (int i = 0; i < NUMBER_OF_MODIFIERS; i++)
         if (modifierToBitmask[1][i] == bitmask)
@@ -44,7 +44,7 @@ unsigned short getModifierForBitmask(MOD bitmask)
     return 0;
 }
 
-bool isModifier(int vcode)
+bool isModifier(int vcode) noexcept
 {
     if (vcode < 0)
         return false;
@@ -52,12 +52,12 @@ bool isModifier(int vcode)
     return (getModifierBitmaskForVcode(vcode) == 0 ? false : true);
 }
 
-bool isRealModifier(int vcode)
+bool isRealModifier(int vcode) noexcept
 {
     MOD bitmask = getModifierBitmaskForVcode(vcode);
     return ((bitmask & 0xFF) > 0);
 }
-bool isVirtualModifier(int vcode)
+bool isVirtualModifier(int vcode) noexcept
 {
     MOD bitmask = getModifierBitmaskForVcode(vcode);
     return ((bitmask & 0x7F00) > 0);

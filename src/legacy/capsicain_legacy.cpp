@@ -429,7 +429,7 @@ int capsicain_main_impl()
 
     consoleUI.printHeader();
 
-    defineAllPrettyVKLabels(PRETTY_VK_LABELS);
+    defineAllPrettyVKLabels(PRETTY_VK_LABELS.data());
 
     if (!readSanitizeIniFile(sanitizedIniContent))
     {
