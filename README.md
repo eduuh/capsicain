@@ -104,6 +104,12 @@ See `src/assets/capsicain.ini` for configuration examples:
 
 See LICENSE file for details.
 
+## Note
+
+**⚠️ Experimental Learning Fork**: This fork is maintained by a developer learning C++ with heavy AI assistance (Claude). The codebase is being actively refactored as a learning exercise. Code quality may vary, and breaking changes are frequent. Use at your own risk!
+
+If you want a stable, production-ready version, please use the [original Capsicain project](https://github.com/cajhin/capsicain).
+
 ## Credits
 
 Fork of original Capsicain by cajhin.
