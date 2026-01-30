@@ -9,6 +9,7 @@ set(TEST_SOURCES
     test_scancodes.cpp
     test_tap_detector.cpp
     test_modifier_tracker.cpp
+    test_combo_matcher.cpp
 )
 
 # Define source files to test (excluding main app entry point and Windows-specific code)
