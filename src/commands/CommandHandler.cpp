@@ -8,6 +8,7 @@
 #include "legacy/traybar.h"
 #include "legacy/utils.h"
 #include "services/ConfigurationService.h"
+#include "services/UIService.h"
 
 #include <iostream>
 #include <string>
@@ -72,15 +73,16 @@ extern void loadAHK();
 extern void unloadAHK();
 extern std::vector<std::string> assembleConfig(int config);
 extern void printStatus();
-extern void printHelp();
-extern void printKeylabels();
+// printHelp() and printKeylabels() now accessed via uiService_
 extern void playKeyEventSequence(std::vector<VKeyEvent> sequence);
 extern void sendVKeyEvent(VKeyEvent keyEvent, bool hold);
 extern std::map<uint8_t, Device>* getHardwareId(bool refresh);
 extern void handleConfigSwitch(int scancode);
 
-CommandHandler::CommandHandler(capsicain::services::ConfigurationService& configService)
+CommandHandler::CommandHandler(capsicain::services::ConfigurationService& configService,
+                               capsicain::services::UIService& uiService)
     : configService_(configService)
+    , uiService_(uiService)
 {
     // Initialize command dispatch map
     // Note: We're not using the map yet, but setting up the infrastructure
@@ -313,7 +315,7 @@ void CommandHandler::handleDebugToggle()
 
 void CommandHandler::handleHelp()
 {
-    printHelp();
+    uiService_.printHelp();
 }
 
 void CommandHandler::handleMacroRecordStart()
@@ -380,7 +382,7 @@ void CommandHandler::handleShowKeyLabels()
 {
     cout << "List of all Key Labels for scancodes" << endl
          << "------------------------------------" << endl;
-    printKeylabels();
+    uiService_.printKeylabels();
 }
 
 void CommandHandler::handleDecreaseDelay()

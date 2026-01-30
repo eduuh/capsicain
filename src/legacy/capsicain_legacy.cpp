@@ -29,24 +29,7 @@
 #include "domain/KeyMapper.h"
 #include "domain/ComboMatcher.h"
 
-typedef int (*AHKTHREAD)(const wchar_t* aScript, const wchar_t* aCmdLine, const wchar_t* aTitle);
-typedef int (*AHKREADY)(int threadid);
-typedef int (*AHKADDSCRIPT)(const wchar_t * script, int waitexecute, int threadid);
-typedef int (*AHKEXEC)(const wchar_t *, int threadid);
-typedef const wchar_t * (*AHKFINDFUNC)(const wchar_t *, int threadid);
-typedef const wchar_t * (*AHKFUNCTION)(const wchar_t* func, const wchar_t * param1, const wchar_t * param2, const wchar_t * param3, const wchar_t * param4, const wchar_t * param5, const wchar_t * param6, const wchar_t * param7, const wchar_t * param8, const wchar_t * param9, const wchar_t * param10, int threadid);
-struct Ahk
-{
-    HMODULE handle;
-    int threadid;
-    AHKTHREAD thread;
-    AHKREADY ready;
-    AHKADDSCRIPT addScript;
-    AHKEXEC exec;
-    AHKFINDFUNC findFunc;
-    AHKFUNCTION function;
-    AHKFUNCTION postFunction;
-} ahk;
+// AHK typedefs and struct moved to AutoHotkeyService (Phase 4)
 
 // Selective using declarations
 using std::cout;
@@ -63,10 +46,11 @@ using std::to_string;
 using std::uppercase;
 namespace chrono = std::chrono;
 
-// Global pointers for legacy compatibility (Phase 1 migration)
-static ConsoleUI* g_consoleUI = nullptr;
+// Global pointers for legacy compatibility (Phase 1-4 migration)
+static capsicain::services::UIService* g_uiService = nullptr;
 static capsicain::services::ErrorService* g_errorService = nullptr;
 static capsicain::services::ProfilingService* g_profilingService = nullptr;
+static capsicain::services::AutoHotkeyService* g_ahkService = nullptr;
 
 // Adapter to bridge legacy global functions to IModifierQuery interface
 class LegacyModifierQuery : public capsicain::domain::IModifierQuery {
@@ -306,59 +290,19 @@ void InterceptionSendCurrentKeystroke()
 
 void loadAHK()
 {
-    if (!ahk.handle)
-        ahk.handle = LoadLibrary(TEXT("AutoHotkey64.dll"));
-    if (!ahk.handle)
-        ahk.handle = LoadLibrary(TEXT("AutoHotkey.dll"));
-    if (!ahk.handle) {
-        cout << endl
-            << "AHK: No AutoHotkey64.dll found. Get one from "
-                "https://github.com/thqby/AutoHotkey_H";
-    }
-    else
-    {
-        ahk.thread = (AHKTHREAD)GetProcAddress(ahk.handle, "NewThread");
-        ahk.ready = (AHKREADY)GetProcAddress(ahk.handle, "ahkReady");
-        ahk.addScript = (AHKADDSCRIPT)GetProcAddress(ahk.handle, "addScript");
-        ahk.exec = (AHKEXEC)GetProcAddress(ahk.handle, "ahkExec");
-        ahk.findFunc = (AHKFINDFUNC)GetProcAddress(ahk.handle, "ahkFindFunc");
-        ahk.function = (AHKFUNCTION)GetProcAddress(ahk.handle, "ahkFunction");
-        ahk.postFunction = (AHKFUNCTION)GetProcAddress(ahk.handle, "ahkPostFunction");
-
-        auto script = LoadUtf8FileToString(L"capsicain.ini");
-        auto idx = script.find(L"[ahk]");
-        if (idx == string::npos)
-            idx = script.find(L"[AHK]");
-        if (idx == string::npos)
-        {
-            cout << endl << "AHK: INI has no [ahk] section...";
-            unloadAHK();
+    if (g_ahkService) {
+        if (!g_ahkService->initializeDLL()) {
             return;
         }
-        script = script.substr(idx + 6);
-        if (script.find(L"ersistent") == string::npos && script.find(L"::") == string::npos)
-            cout << endl << "AHK: You should add \"Persistent\" to your AHK script if it doesn't have hotkeys...";
-        if (script != L"")
-        {
-            if (ahk.threadid)
-                ahk.exec(L"ExitApp", ahk.threadid);
-            ahk.threadid = ahk.thread(script.c_str(), L"", L"");
-            if (ahk.threadid)
-                cout << endl << "AHK: Loaded [ahk] to AutoHotkey64.dll";
-            else
-                cout << endl << "AHK: Failed to load [ahk] to AutoHotkey64.dll";
-        }
+        g_ahkService->loadScriptFromIni();
     }
 }
 
 void unloadAHK()
 {
-    if (ahk.threadid)
-        ahk.exec(L"ExitApp", ahk.threadid);
-    if (ahk.handle)
-        FreeLibrary(ahk.handle);
-    ahk.handle = 0;
-    ahk.threadid = 0;
+    if (g_ahkService) {
+        g_ahkService->shutdown();
+    }
 }
 
 int mousetoKey(InterceptionMouseStroke &mstroke, InterceptionKeyStroke *kstroke)
@@ -438,9 +382,10 @@ int capsicain_main_impl(Application* app)
     ConsoleUI& consoleUI = app->getConsoleUI();
 
     // Set legacy globals for backwards compatibility
-    g_consoleUI = &consoleUI;
+    g_uiService = &uiService;
     g_errorService = &errorService;
     g_profilingService = &profilingService;
+    g_ahkService = &app->getAHKService();
 
     interceptionState.interceptionContext = interception_create_context();
 
@@ -527,8 +472,8 @@ int capsicain_main_impl(Application* app)
     InterceptionDevice device;
     InterceptionStroke stroke;
 
-    // Initialize command handler for ESC+key sequences (Phase 2: inject configService)
-    CommandHandler commandHandler(configService);
+    // Initialize command handler for ESC+key sequences (Phase 4: inject configService and uiService)
+    CommandHandler commandHandler(configService, uiService);
 
     // Initialize domain components for refactored key processing
     capsicain::TapDetector tapDetector;
@@ -1969,22 +1914,22 @@ void releaseAllSentKeys()
 
 void printOptions()
 {
-    if (g_consoleUI) g_consoleUI->printOptions();
+    if (g_uiService) g_uiService->printOptions();
 }
 
 void printStatus()
 {
-    if (g_consoleUI) g_consoleUI->printStatus();
+    if (g_uiService) g_uiService->getConsoleUI().printStatus();
 }
 
 void printHelp()
 {
-    if (g_consoleUI) g_consoleUI->printHelp();
+    if (g_uiService) g_uiService->printHelp();
 }
 
 void printKeylabels()
 {
-    if (g_consoleUI) g_consoleUI->printKeylabels();
+    if (g_uiService) g_uiService->printKeylabels();
 }
 
 void normalizeIKStroke(InterceptionKeyStroke &ikstroke) {
@@ -2137,27 +2082,9 @@ bool runExecutable(Executable &exe)
 
 void sendAHK(const std::string& msg)
 {
-    if (!ahk.handle)
-    {
-        IFDEBUG error("AHK dll is not loaded");
-        return;
+    if (g_ahkService) {
+        g_ahkService->send(msg);
     }
-    if (!ahk.threadid)
-    {
-        IFDEBUG error("AHK thread not started");
-        return;
-    }
-    auto args = stringSplit(msg, ',');
-    std::vector<std::wstring> wargs;
-    for (int i = 0; i <= 10; ++i)
-    {
-        if (i < args.size())
-            wargs.push_back(widen(args[i]));
-        else
-            wargs.push_back(L"");
-    }
-    auto wmsg = widen(msg);
-    ahk.postFunction(wargs[0].c_str(), wargs[1].c_str(), wargs[2].c_str(), wargs[3].c_str(), wargs[4].c_str(), wargs[5].c_str(), wargs[6].c_str(), wargs[7].c_str(), wargs[8].c_str(), wargs[9].c_str(), wargs[10].c_str(), ahk.threadid);
 }
 
 void killExecutableByPath(string path)

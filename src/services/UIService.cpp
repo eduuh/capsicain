@@ -59,5 +59,20 @@ void UIService::printDebug(const std::string& text) const
     std::cout << text << std::endl;
 }
 
+void UIService::printOptions() const
+{
+    consoleUI_.printOptions();
+}
+
+void UIService::printHelp() const
+{
+    consoleUI_.printHelp();
+}
+
+void UIService::printKeylabels() const
+{
+    consoleUI_.printKeylabels();
+}
+
 } // namespace services
 } // namespace capsicain

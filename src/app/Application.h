@@ -9,6 +9,7 @@
 #include "services/ProfilingService.h"
 #include "services/ConfigurationService.h"
 #include "services/HardwareService.h"
+#include "services/AutoHotkeyService.h"
 
 /**
  * Application - Main application orchestrator
@@ -61,6 +62,7 @@ public:
     capsicain::services::ProfilingService& getProfilingService() { return profilingService_; }
     capsicain::services::ConfigurationService& getConfigService() { return configService_; }
     capsicain::services::HardwareService& getHardwareService() { return hardwareService_; }
+    capsicain::services::AutoHotkeyService& getAHKService() { return ahkService_; }
     ConsoleUI& getConsoleUI() { return consoleUI_; }
 
 private:
@@ -73,6 +75,7 @@ private:
     capsicain::services::ProfilingService profilingService_; // Phase 1
     capsicain::services::ConfigurationService configService_; // Phase 1-3
     capsicain::services::HardwareService hardwareService_;   // Phase 3
+    capsicain::services::AutoHotkeyService ahkService_;      // Phase 4
 
     // Core components
     CommandHandler commandHandler_;

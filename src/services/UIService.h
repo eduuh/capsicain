@@ -73,6 +73,9 @@ public:
     void printHeader(const std::string& text) const;
     void printStatus(const std::string& text) const;
     void printDebug(const std::string& text) const;
+    void printOptions() const;
+    void printHelp() const;
+    void printKeylabels() const;
 
 private:
     ConsoleUI& consoleUI_;  // Non-owning reference
