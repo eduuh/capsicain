@@ -452,7 +452,7 @@ int capsicain_main_impl(Application* app)
     cout << endl << endl << "capsicain running.... ";
 
     if (globals.startInTraybar)
-        ShowInTraybar(globalState.activeConfig != 0, globalState.recordingMacro >= 0, globalState.activeConfig);
+        ShowInTraybar(g_runtimeState->getActiveConfig() != 0, g_runtimeState->isRecording(), g_runtimeState->getActiveConfig());
     else if (globals.startMinimized)
         ShowInTaskbarMinimized();
 
@@ -518,8 +518,7 @@ int capsicain_main_impl(Application* app)
             if (allMaps.devices.find(device) == allMaps.devices.end())
                 getHardwareId();
 
-            globalState.deviceIdKeyboard = allMaps.devices[device].id;
-            globalState.deviceIsAppleKeyboard = allMaps.devices[device].apple;
+            g_runtimeState->setDeviceInfo(allMaps.devices[device].id, allMaps.devices[device].apple);
 
             for (int i = 0; i < n; ++i)
             {
@@ -1117,7 +1116,7 @@ void parseIniGlobals(capsicain::services::ConfigurationService& configService)
 bool parseIniOptions(std::vector<std::string> assembledIni, capsicain::services::ConfigurationService* configService = nullptr)
 {
     vector<string> sectLines = getTaggedLinesFromIni(INI_TAG_OPTIONS, assembledIni);
-    globalState.activeConfigName = INI_TAG_OPTIONS+" configName is undefined";
+    std::string activeConfigName = INI_TAG_OPTIONS+" configName is undefined";
 
     capsicain::RuntimeOptions* opts = configService ? &configService->getOptionsMutable() : nullptr;
 
@@ -1126,11 +1125,11 @@ bool parseIniOptions(std::vector<std::string> assembledIni, capsicain::services:
         string token = stringCopyFirstToken(line);
         if (token == "configname")
         {
-            globalState.activeConfigName = stringGetRestBehindFirstToken(line);
+            activeConfigName = stringGetRestBehindFirstToken(line);
         }
         else if (token == "layername")  //back compat, deprecated
         {
-            globalState.activeConfigName = stringGetRestBehindFirstToken(line);
+            activeConfigName = stringGetRestBehindFirstToken(line);
             cout << endl << "INFO: Option LAYERname is deprecated. Use Option CONFIGname instead.";
         }
         else if (token == "debug")
@@ -1164,13 +1163,15 @@ bool parseIniOptions(std::vector<std::string> assembledIni, capsicain::services:
         }
         else if (token == "includedeviceid")
         {
-            globalState.includeDeviceId = stringGetRestBehindFirstToken(line);
-            cout << endl << "INFO: this layer is active for devices whose ID contains '" << globalState.includeDeviceId << "'";
+            std::string includeId = stringGetRestBehindFirstToken(line);
+            g_runtimeState->setDeviceFilter(includeId, g_runtimeState->getExcludeDeviceId());
+            cout << endl << "INFO: this layer is active for devices whose ID contains '" << includeId << "'";
         }
         else if (token == "excludedeviceid")
         {
-            globalState.excludeDeviceId = stringGetRestBehindFirstToken(line);
-            cout << endl << "INFO: this layer is active for devices whose ID does NOT contain '" << globalState.excludeDeviceId << "'";
+            std::string excludeId = stringGetRestBehindFirstToken(line);
+            g_runtimeState->setDeviceFilter(g_runtimeState->getIncludeDeviceId(), excludeId);
+            cout << endl << "INFO: this layer is active for devices whose ID does NOT contain '" << excludeId << "'";
         }
         else if (token == "delayforkeysequencems")
         {
@@ -1209,6 +1210,9 @@ bool parseIniOptions(std::vector<std::string> assembledIni, capsicain::services:
             cout << endl << "WARNING: ignoring unknown OPTION " << line << endl;
         }
     }
+
+    // Set active config name in RuntimeStateService
+    g_runtimeState->setActiveConfig(g_runtimeState->getActiveConfig(), activeConfigName);
 
     return true;
 }
@@ -1550,21 +1554,20 @@ bool parseProcessIniConfig(int config)
 
 void switchConfig(int config, bool forceReloadSameConfig)
 {
-    if (!forceReloadSameConfig && config == globalState.activeConfig)
+    if (!forceReloadSameConfig && config == g_runtimeState->getActiveConfig())
         return;
 
-    int oldConfig = globalState.activeConfig;
+    int oldConfig = g_runtimeState->getActiveConfig();
     reset();
 
     if (config == DISABLED_CONFIG_NUMBER)
     {
-        globalState.activeConfig = DISABLED_CONFIG_NUMBER;
-        globalState.activeConfigName = DISABLED_CONFIG_NAME;
+        g_runtimeState->setActiveConfig(DISABLED_CONFIG_NUMBER, DISABLED_CONFIG_NAME);
     }
     else if (parseProcessIniConfig(config))
     {
-        globalState.activeConfig = config;
-        globalState.previousConfig = oldConfig;
+        g_runtimeState->setActiveConfig(config, g_runtimeState->getActiveConfigName());
+        g_runtimeState->setPreviousConfig(oldConfig);
         printOptions();
     }
     else if (parseProcessIniConfig(oldConfig))
@@ -1574,8 +1577,7 @@ void switchConfig(int config, bool forceReloadSameConfig)
     else
     {
         cout << endl << endl << "ERROR: CANNOT RELOAD CURRENT CONFIG? Switching to config 0";
-        globalState.activeConfig = DISABLED_CONFIG_NUMBER;
-        globalState.activeConfigName = DISABLED_CONFIG_NAME;
+        g_runtimeState->setActiveConfig(DISABLED_CONFIG_NUMBER, DISABLED_CONFIG_NAME);
     }
 
     if (interceptionState.interceptionContext)
@@ -1586,8 +1588,8 @@ void switchConfig(int config, bool forceReloadSameConfig)
             interception_set_filter(interceptionState.interceptionContext, interception_is_mouse, INTERCEPTION_FILTER_MOUSE_NONE);
     }
 
-    updateTrayIcon(true, globalState.recordingMacro >= 0, globalState.activeConfig);
-    cout << endl << endl << "ACTIVE CONFIG: " << globalState.activeConfig << " = " << globalState.activeConfigName;
+    updateTrayIcon(true, g_runtimeState->isRecording(), g_runtimeState->getActiveConfig());
+    cout << endl << endl << "ACTIVE CONFIG: " << g_runtimeState->getActiveConfig() << " = " << g_runtimeState->getActiveConfigName();
 }
 
 void resetCapsNumScrollLock()
@@ -1622,14 +1624,17 @@ void reset()
         profiler.timepointLoopStart = tpls;
     }
 
-    GlobalState tmp = globalState; //some settings shall survive the reset
-    globalState = defaultGlobalState;
-    globalState.deviceIdKeyboard = tmp.deviceIdKeyboard;
-    globalState.activeConfig = tmp.activeConfig;
-    globalState.activeConfigName = tmp.activeConfigName;
-    globalState.previousConfig = tmp.previousConfig;
-    for(int i=0;i<MAX_NUM_MACROS;i++)
-        globalState.recordedMacros[i] = tmp.recordedMacros[i];
+    // Clear runtime state while preserving device info, config, and macros
+    // (matches legacy behavior)
+    g_runtimeState->setRealEscapeDown(false);
+    g_runtimeState->clearKeysDownSent();
+    g_runtimeState->clearAllTempReleased();
+    for(int i=0; i<VK_MAX; i++) {
+        g_runtimeState->clearHoldKeys(i);
+    }
+    g_runtimeState->setSecretSequenceRecording(false);
+    g_runtimeState->setSecretSequencePlayback(false);
+    // Note: Preserves capsicainOn, deviceInfo, activeConfig, previousConfig, and recordedMacros
 }
 
 //Reset and reload the ini from scratch
@@ -1674,7 +1679,7 @@ void reload(capsicain::services::ConfigurationService& configService)
     else
         unloadAHK();
 
-    switchConfig(globalState.activeConfig, true);
+    switchConfig(g_runtimeState->getActiveConfig(), true);
 }
 
 //Release all keys to 'up' that have been sent out as 'down'
@@ -1687,8 +1692,8 @@ void releaseAllSentKeys()
     // release backwards to release modifiers and esc last
     for (int i = 255; i >= 0; --i)
     {
-        globalState.holdKeys[i].clear();
-        if (globalState.keysDownSent[i])
+        g_runtimeState->clearHoldKeys(i);
+        if (g_runtimeState->isKeySent(i))
         {
             sendVKeyEvent({ i, false });
         }
@@ -1789,12 +1794,12 @@ void sendCapsicainCodeHandler(VKeyEvent keyEvent)
     }
     case VK_CPS_CONFIGPREVIOUS:
     {
-        switchConfig(globalState.previousConfig, false);
+        switchConfig(g_runtimeState->getPreviousConfig(), false);
         break;
     }
     case VK_CPS_OBFUSCATED_SEQUENCE_START:
     {
-        globalState.secretSequencePlayback = true;
+        g_runtimeState->setSecretSequencePlayback(true);
         break;
     }
     case VK_CPS_PAUSE:
@@ -1926,7 +1931,7 @@ void playKeyEventSequence(vector<VKeyEvent> keyEventSequence)
     int  expectParamForFuncKey = -1;
 
     IFDEBUG
-        if (!globalState.secretSequencePlayback && keyEventSequence.at(0).vcode != VK_CPS_OBFUSCATED_SEQUENCE_START)
+        if (!g_runtimeState->isSecretSequencePlayback() && keyEventSequence.at(0).vcode != VK_CPS_OBFUSCATED_SEQUENCE_START)
              cout << "  --> SEQUENCE (" << dec << keyEventSequence.size() << ") ";
 
     for (VKeyEvent keyEvent : keyEventSequence)
@@ -1934,7 +1939,7 @@ void playKeyEventSequence(vector<VKeyEvent> keyEventSequence)
         // can be changed during key sequence by delay()
         delayBetweenKeyEventsMS = options.delayForKeySequenceMS;
         int vc = keyEvent.vcode;
-        if (globalState.secretSequencePlayback)
+        if (g_runtimeState->isSecretSequencePlayback())
             vc = deObfuscateVKey(vc);
 
         //test if this is the param for the preceding func key in "command + value" sequence
@@ -1966,21 +1971,21 @@ void playKeyEventSequence(vector<VKeyEvent> keyEventSequence)
 
                 if (macroNum < 1 || macroNum >= MAX_NUM_MACROS)
                     cout << endl << "ERROR in .ini: bad number for macro. Must be 1.." << MAX_NUM_MACROS - 1;
-                else if (globalState.recordingMacro != -1)
-                    cout << endl << "INFO: a macro is already being recorded: #" << globalState.recordingMacro;
+                else if (g_runtimeState->isRecording())
+                    cout << endl << "INFO: a macro is already being recorded: #" << g_runtimeState->getRecordingMacroIndex();
                 else
                 {
                     IFDEBUG cout << endl << "Start recording " << (isSecret ? "secret" : "") << "macro #" << macroNum << endl;
-                    globalState.recordingMacro = macroNum;
-                    globalState.recordedMacros[macroNum].clear();
+                    g_runtimeState->startRecording(macroNum);
+                    g_runtimeState->clearMacro(macroNum);
 
                     if (isSecret)
                     {
-                        globalState.secretSequenceRecording = true;
-                        globalState.recordedMacros[macroNum].push_back({ VK_CPS_OBFUSCATED_SEQUENCE_START, true });
+                        g_runtimeState->setSecretSequenceRecording(true);
+                        g_runtimeState->getMacroMutable(macroNum).push_back({ VK_CPS_OBFUSCATED_SEQUENCE_START, true });
                     }
                 }
-                updateTrayIcon(true, globalState.recordingMacro >= 0, globalState.activeConfig);
+                updateTrayIcon(true, g_runtimeState->isRecording(), g_runtimeState->getActiveConfig());
                 break;
             }
             case VK_CPS_PLAYMACRO:
@@ -1992,12 +1997,18 @@ void playKeyEventSequence(vector<VKeyEvent> keyEventSequence)
                     cout << endl << "ERROR: bad number for macro. Must be 1.." << MAX_NUM_MACROS - 1;
                 else
                 {
-                    if (globalState.recordedMacros[macnum].size() == 0)
+                    if (g_runtimeState->getMacro(macnum).size() == 0)
                         cout << endl << "INFO macro #" << macnum << " has not been recorded before.";
                     else
                     {
-                        playKeyEventSequence(globalState.recordedMacros[macnum]);
-                        globalState.secretSequencePlayback = false;
+                        const auto& macro = g_runtimeState->getMacro(macnum);
+                        std::vector<::VKeyEvent> legacyMacro;
+                        legacyMacro.reserve(macro.size());
+                        for(const auto& evt : macro) {
+                            legacyMacro.push_back({evt.vcode, evt.isDownstroke});
+                        }
+                        playKeyEventSequence(legacyMacro);
+                        g_runtimeState->setSecretSequencePlayback(false);
                     }
                 }
                 break;
@@ -2007,7 +2018,7 @@ void playKeyEventSequence(vector<VKeyEvent> keyEventSequence)
                 if constexpr (ENABLE_TRACE) cout << endl << "vk_cps_holdkey: " << getPrettyVKLabelPadded(loopState.vcode, 0) << " -> " << getPrettyVKLabelPadded(vc, 0);
                 if (!getKeyHolding(vc))
                 {
-                    globalState.holdKeys[loopState.vcode].emplace(vc);
+                    g_runtimeState->recordHoldKey(loopState.vcode, vc);
                     sendVKeyEvent(keyEvent, false);
                 }
                 else
@@ -2027,14 +2038,14 @@ void playKeyEventSequence(vector<VKeyEvent> keyEventSequence)
                             {
                                 int mod = getModifierForBitmask(mask);
                                 if constexpr (ENABLE_TRACE) cout << endl << "vk_cps_holdmod: " << getPrettyVKLabelPadded(mod, 0) << " -> " << getPrettyVKLabelPadded(vc, 0);
-                                globalState.holdKeys[mod].emplace(vc);
+                                g_runtimeState->recordHoldKey(mod, vc);
                                 break;
                             }
                         }
                     }
                     else
                     {
-                        globalState.holdKeys[loopState.vcode].emplace(vc);
+                        g_runtimeState->recordHoldKey(loopState.vcode, vc);
                     }
                     sendVKeyEvent(keyEvent, false);
                 }
@@ -2074,7 +2085,7 @@ void playKeyEventSequence(vector<VKeyEvent> keyEventSequence)
                 }
                 else
                 {
-                    state = globalState.keysDownSent[vc & 0xFF];
+                    state = g_runtimeState->isKeySent(vc & 0xFF);
                 }
                 if (vc < 0xFF)
                     sendVKeyEvent({vc, !state});
@@ -2128,11 +2139,13 @@ void playKeyEventSequence(vector<VKeyEvent> keyEventSequence)
             bool tempReleasedKeys = true;
             for (int i = 0; i <= 255; i++)
             {
-                globalState.keysDownTempReleased[i] = globalState.keysDownSent[i];
-                if (globalState.keysDownSent[i])
+                if (g_runtimeState->isKeySent(i))
+                {
+                    g_runtimeState->recordTempReleased(i);
                     sendVKeyEvent({ i, false });
+                }
             }
-            if (globalState.keysDownSentCounter != 0)
+            if (g_runtimeState->getKeysDownSentCounter() != 0)
                 error("BUG: keysDownSentCounter != 0");
         }
         else if (vc == VK_CPS_TEMPRESTOREKEYS) //restore all keys that were down before 'VK_cps_temprelease'
@@ -2140,17 +2153,17 @@ void playKeyEventSequence(vector<VKeyEvent> keyEventSequence)
             bool tempReleasedKeys = false;
             for (int i = 0; i <= 255; i++)
             {
-                if (globalState.keysDownTempReleased[i])
+                if (g_runtimeState->isTempReleased(i))
                 {
                     sendVKeyEvent({ i, true });
-                    globalState.keysDownTempReleased[i] = false;
+                    g_runtimeState->clearTempReleased(i);
                 }
             }
         }
         else if (vc == VK_CPS_RELEASEKEYS) //release all keys that are physically down
         {
             for (int i = 0; i <= 255; i++)
-                if (globalState.keysDownSent[i])
+                if (g_runtimeState->isKeySent(i))
                     sendVKeyEvent({ i, false }, false);
         }
         //func key with param; wait for next key which is the param
@@ -2175,7 +2188,7 @@ void playKeyEventSequence(vector<VKeyEvent> keyEventSequence)
         }
         else //regular non-escaped keyEvent
         {
-            if(globalState.secretSequencePlayback)
+            if(g_runtimeState->isSecretSequencePlayback())
                 sendVKeyEvent({ deObfuscateVKey(keyEvent.vcode) , keyEvent.isDownstroke });
             else
                 sendVKeyEvent(keyEvent);
@@ -2196,13 +2209,13 @@ int getKeyHolding(int vcode)
 {
     for (int i = 0; i < VK_MAX; i++)
     {
-        if (globalState.holdKeys[i].find(vcode) != globalState.holdKeys[i].end())
+        if (g_runtimeState->getHoldKeys(i).find(vcode) != g_runtimeState->getHoldKeys(i).end())
             return i;
     }
     return 0;
 }
 
-std::string getHoldKeyString(std::set<int> &v, std::string delim)
+std::string getHoldKeyString(const std::set<int> &v, std::string delim)
 {
     std::string out;
     for (auto it = v.rbegin(); it != v.rend(); ++it)
@@ -2210,7 +2223,7 @@ std::string getHoldKeyString(std::set<int> &v, std::string delim)
         out += PRETTY_VK_LABELS[*it];
         out += delim;
     }
-    for (int i = 0; i < delim.size(); ++i)
+    for (size_t i = 0; i < delim.size(); ++i)
         out.pop_back();
     return out;
 }
@@ -2297,29 +2310,29 @@ void sendVKeyEvent(VKeyEvent keyEvent, bool hold)
         return;
     }
 
-    if (globalState.holdKeys[keyEvent.vcode].size() && hold)
+    if (g_runtimeState->getHoldKeys(keyEvent.vcode).size() && hold)
     {
         int code = keyEvent.vcode;
         set<int> release;
-        IFDEBUG cout << " {" << PRETTY_VK_LABELS[code] << (keyEvent.isDownstroke ? " holding " : " released ") << globalState.holdKeys[code].size() << ": " << getHoldKeyString(globalState.holdKeys[code], "+") << "}";
+        IFDEBUG cout << " {" << PRETTY_VK_LABELS[code] << (keyEvent.isDownstroke ? " holding " : " released ") << g_runtimeState->getHoldKeys(code).size() << ": " << getHoldKeyString(g_runtimeState->getHoldKeys(code), "+") << "}";
         if (keyEvent.isDownstroke)
         {
             if (options.holdRepeatsAllKeys)
             {
-                for (auto it = globalState.holdKeys[code].begin(); it != globalState.holdKeys[code].end(); ++it)
+                for (auto it = g_runtimeState->getHoldKeys(code).begin(); it != g_runtimeState->getHoldKeys(code).end(); ++it)
                     sendVKeyEvent({*it, true}, false);
             }
             else
             {
-                sendVKeyEvent({*globalState.holdKeys[code].begin(), true}, false);
+                sendVKeyEvent({*g_runtimeState->getHoldKeys(code).begin(), true}, false);
             }
             return;
         }
         else
         {
-            for (auto it = globalState.holdKeys[code].rbegin(); it != globalState.holdKeys[code].rend(); ++it)
+            for (auto it = g_runtimeState->getHoldKeys(code).rbegin(); it != g_runtimeState->getHoldKeys(code).rend(); ++it)
                 release.emplace(*it);
-            globalState.holdKeys[code].clear();
+            g_runtimeState->clearHoldKeys(code);
             for (auto key : release)
                 sendVKeyEvent({key, false}, false);
             if (release.find(keyEvent.vcode) != release.end())
@@ -2338,7 +2351,7 @@ void sendVKeyEvent(VKeyEvent keyEvent, bool hold)
     if (scancode == 0xE4)  //what was that for?
         IFDEBUG cout << " {sending E4} ";
 
-    if (!keyEvent.isDownstroke &&  !globalState.keysDownSent[scancode])  //ignore up when key is already up
+    if (!keyEvent.isDownstroke &&  !g_runtimeState->isKeySent(scancode))  //ignore up when key is already up
     {
         IFDEBUG cout << " {blocked " << PRETTY_VK_LABELS[scancode] << " UP: was not down}";
         return;
@@ -2354,34 +2367,35 @@ void sendVKeyEvent(VKeyEvent keyEvent, bool hold)
     //consistency check
     if (scancode < VM_WHEEL_UP)
     {
-        if (globalState.keysDownSent[scancode] == 0 && keyEvent.isDownstroke)
-            globalState.keysDownSentCounter++;
-        else if (globalState.keysDownSent[scancode] == 1 && !keyEvent.isDownstroke)
-            globalState.keysDownSentCounter--;
-
-            globalState.keysDownSent[scancode] = keyEvent.isDownstroke;
+        if (keyEvent.isDownstroke)
+            g_runtimeState->recordKeySent(scancode);
+        else
+            g_runtimeState->recordKeyReleased(scancode);
     }
 
     //handle live macro recording
-    if (globalState.recordingMacro >= 0)
+    if (g_runtimeState->isRecording())
     {
-        if (globalState.recordedMacros[globalState.recordingMacro].size() >= MAX_MACRO_LENGTH -2)  //macro getting too big
+        int recordingIndex = g_runtimeState->getRecordingMacroIndex();
+        if (g_runtimeState->getMacro(recordingIndex).size() >= MAX_MACRO_LENGTH -2)  //macro getting too big
         {
-            globalState.recordingMacro = -1;
-            globalState.secretSequenceRecording = false;
-            updateTrayIcon(true, globalState.recordingMacro >= 0, globalState.activeConfig);
-            cout << endl << endl << "Macro Length > " << MAX_MACRO_LENGTH << ". Forgotten Macro?" << "Stop recording macro #" << globalState.recordingMacro << endl << endl;
+            g_runtimeState->stopRecording();
+            g_runtimeState->setSecretSequenceRecording(false);
+            updateTrayIcon(true, g_runtimeState->isRecording(), g_runtimeState->getActiveConfig());
+            cout << endl << endl << "Macro Length > " << MAX_MACRO_LENGTH << ". Forgotten Macro?" << "Stop recording macro #" << recordingIndex << endl << endl;
         }
         else
-        { 
+        {
             //drop upstroke from the starting shortcut?
-            if (keyEvent.isDownstroke || globalState.recordedMacros[globalState.recordingMacro].size() > 0 )
+            if (keyEvent.isDownstroke || g_runtimeState->getMacro(recordingIndex).size() > 0 )
             {
                 //store the macro obfuscated?
-                VKeyEvent obfusc = keyEvent;
-                if (globalState.secretSequenceRecording)
+                capsicain::VKeyEvent obfusc;
+                obfusc.vcode = keyEvent.vcode;
+                obfusc.isDownstroke = keyEvent.isDownstroke;
+                if (g_runtimeState->isSecretSequenceRecording())
                     obfusc.vcode = obfuscateVKey(obfusc.vcode);
-                globalState.recordedMacros[globalState.recordingMacro].push_back(obfusc);
+                g_runtimeState->recordKeystroke(obfusc);
             }
         }
     }
@@ -2392,8 +2406,8 @@ void sendVKeyEvent(VKeyEvent keyEvent, bool hold)
     InterceptionKeyStroke iks = convertVkeyEvent2ikstroke(keyEvent);
     //hide secret macro recording?
     IFDEBUG
-        if(!globalState.secretSequencePlayback)
-            cout << " {" << PRETTY_VK_LABELS[keyEvent.vcode] << (keyEvent.isDownstroke ? "v" : "^") << " #" << globalState.keysDownSentCounter << "}";
+        if(!g_runtimeState->isSecretSequencePlayback())
+            cout << " {" << PRETTY_VK_LABELS[keyEvent.vcode] << (keyEvent.isDownstroke ? "v" : "^") << " #" << g_runtimeState->getKeysDownSentCounter() << "}";
 
     int dev;
     if (interception_is_keyboard(interceptionState.interceptionDevice))
