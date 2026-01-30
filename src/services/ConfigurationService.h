@@ -12,7 +12,7 @@ namespace services {
  *
  * Phase 1: Manages sanitized INI content
  * Phase 2: Manages GlobalSettings and RuntimeOptions
- * Future phases will add: MappingData
+ * Phase 3: Manages MappingData
  *
  * Responsibilities:
  * - Load and parse capsicain.ini file
@@ -125,10 +125,29 @@ public:
         return options_;
     }
 
+    // Phase 3: MappingData accessors
+
+    /**
+     * @brief Get mapping data (read-only)
+     * @return Const reference to mapping data
+     */
+    [[nodiscard]] const capsicain::MappingData& getMappings() const noexcept {
+        return mappings_;
+    }
+
+    /**
+     * @brief Get mutable mapping data (for initialization)
+     * @return Reference to mapping data
+     */
+    [[nodiscard]] capsicain::MappingData& getMappingsMutable() noexcept {
+        return mappings_;
+    }
+
 private:
     std::vector<std::string> sanitizedIniContent_;  // Replaces global sanitizedIniContent
     capsicain::GlobalSettings globalSettings_;      // Replaces global globals
     capsicain::RuntimeOptions options_;              // Replaces global options
+    capsicain::MappingData mappings_;                // Replaces global allMaps (Phase 3)
 };
 
 } // namespace services

@@ -8,15 +8,15 @@
 #include "services/ErrorService.h"
 #include "services/ProfilingService.h"
 #include "services/ConfigurationService.h"
+#include "services/HardwareService.h"
 
 /**
  * Application - Main application orchestrator
  *
  * Owns the main loop and coordinates all major components:
- * - Services (UI, Error, Profiling, Configuration)
+ * - Services (UI, Error, Profiling, Configuration, Hardware)
  * - CommandHandler for ESC+key commands
  * - ConsoleUI for output
- * - Interception for input
  *
  * This class extracts the main() function logic into a testable,
  * maintainable structure with proper dependency management.
@@ -60,17 +60,19 @@ public:
     capsicain::services::ErrorService& getErrorService() { return errorService_; }
     capsicain::services::ProfilingService& getProfilingService() { return profilingService_; }
     capsicain::services::ConfigurationService& getConfigService() { return configService_; }
+    capsicain::services::HardwareService& getHardwareService() { return hardwareService_; }
     ConsoleUI& getConsoleUI() { return consoleUI_; }
 
 private:
     // UI components
     ConsoleUI consoleUI_;
 
-    // Services (Phase 1: Utility services)
-    capsicain::services::UIService uiService_;
-    capsicain::services::ErrorService errorService_;
-    capsicain::services::ProfilingService profilingService_;
-    capsicain::services::ConfigurationService configService_;
+    // Services
+    capsicain::services::UIService uiService_;              // Phase 1
+    capsicain::services::ErrorService errorService_;        // Phase 1
+    capsicain::services::ProfilingService profilingService_; // Phase 1
+    capsicain::services::ConfigurationService configService_; // Phase 1-3
+    capsicain::services::HardwareService hardwareService_;   // Phase 3
 
     // Core components
     CommandHandler commandHandler_;

@@ -65,6 +65,7 @@ set(CAPSICAIN_SOURCES
     src/services/UIService.cpp
     src/services/ErrorService.cpp
     src/services/ConfigurationService.cpp
+    src/services/HardwareService.cpp
 )
 
 set(CAPSICAIN_HEADERS
@@ -93,6 +94,7 @@ set(CAPSICAIN_HEADERS
     src/services/ErrorService.h
     src/services/ProfilingService.h
     src/services/ConfigurationService.h
+    src/services/HardwareService.h
 
     # Core headers
     src/core/KeyEvent.h
