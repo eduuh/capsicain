@@ -1,8 +1,8 @@
-#include "pch.h"
-#include "traybar.h"
+#include "platform/pch.h"
+#include "legacy/traybar.h"
 #include <string>
 #include <windows.h>
-#include "resource.h"
+#include "platform/resource.h"
 #include <iostream>
 
 const int TRAYBAR_UID = 11;

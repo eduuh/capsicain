@@ -25,15 +25,16 @@ using ScanCode = uint16_t;
 using MOD = uint32_t;
 
 // Constants
-constexpr size_t MAX_VCODES = 256;
 constexpr VKeyCode SC_NOP = 0xFF;
 constexpr int REWIRE_UNDEFINED = -1;
 
-// Rewire column indices
-constexpr int REWIRE_OUT = 0;
-constexpr int REWIRE_TAP = 1;
-constexpr int REWIRE_TAPHOLD = 2;
-constexpr int REWIRE_COLS = 3;
+// MAX_VCODES: Use platform definition if available, otherwise fallback
+#ifndef MAX_VCODES
+constexpr size_t MAX_VCODES = 256;
+#endif
+
+// Note: REWIRE_OUT, REWIRE_TAP, REWIRE_TAPHOLD, REWIRE_COLS
+// are defined in platform/constants.h and will be available when this header is used
 
 /**
  * Key event for output sequences

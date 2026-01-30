@@ -7,8 +7,8 @@
  * are currently pressed and their tap state.
  */
 
-#include "../core/KeyEvent.h"
-#include "../modifiers.h"
+#include "core/KeyEvent.h"
+#include "legacy/modifiers.h"
 
 namespace capsicain {
 

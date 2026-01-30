@@ -15,12 +15,12 @@ if(NOT MSVC)
 endif()
 
 # Set output directories to be inside build folder - using relative paths
-if(CMAKE_BINARY_DIR MATCHES ".*/capsicain/build/.*")
+if(CMAKE_BINARY_DIR MATCHES ".*/build/.*")
     # We're already in a build subdirectory, so set output to current binary dir
     set(OUTPUT_DIR ${CMAKE_BINARY_DIR})
 else()
-    # Set output to build folder
-    set(OUTPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/capsicain/build)
+    # Set output to build folder at root
+    set(OUTPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/build)
 endif()
 
 # Set standard output directories
@@ -39,44 +39,77 @@ endforeach()
 # Set character set
 add_compile_definitions(_MBCS)
 
-# Define source files
+# Define source files - organized by component
 set(CAPSICAIN_SOURCES
-    capsicain/capsicain.cpp
-    capsicain/led.cpp
-    capsicain/modifiers.cpp
-    capsicain/pch.cpp
-    capsicain/scancodes.cpp
-    capsicain/configUtils.cpp
-    capsicain/traybar.cpp
-    capsicain/utils.cpp
+    # Legacy monolithic code
+    src/legacy/capsicain_legacy.cpp
+    src/legacy/configUtils.cpp
+    src/legacy/modifiers.cpp
+    src/legacy/scancodes.cpp
+    src/legacy/utils.cpp
+    src/legacy/led.cpp
+    src/legacy/traybar.cpp
+
+    # Platform
+    src/platform/pch.cpp
+
+    # Application layer
+    src/app/Application.cpp
+    src/commands/CommandHandler.cpp
+    src/ui/ConsoleUI.cpp
 )
 
 set(CAPSICAIN_HEADERS
-    capsicain/capsicain.h
-    capsicain/configUtils.h
-    capsicain/constants.h
-    capsicain/led.h
-    capsicain/traybar.h
-    capsicain/interception.h
-    capsicain/modifiers.h
-    capsicain/pch.h
-    capsicain/resource.h
-    capsicain/scancodes.h
-    capsicain/utils.h
+    # Legacy headers
+    src/legacy/capsicain_legacy.h
+    src/legacy/configUtils.h
+    src/legacy/modifiers.h
+    src/legacy/scancodes.h
+    src/legacy/utils.h
+    src/legacy/led.h
+    src/legacy/traybar.h
+
+    # Platform headers
+    src/platform/pch.h
+    src/platform/constants.h
+    src/platform/resource.h
+    src/platform/interception.h
+
+    # Application layer headers
+    src/app/Application.h
+    src/commands/CommandHandler.h
+    src/ui/ConsoleUI.h
+
+    # Core headers
+    src/core/KeyEvent.h
+    src/core/ProcessingContext.h
+    src/core/Types.h
+
+    # Domain headers
+    src/domain/TapDetector.h
+    src/domain/ModifierTracker.h
+    src/domain/ComboMatcher.h
+    src/domain/KeyMapper.h
+    src/domain/KeyProcessor.h
+    src/domain/LeaderKey.h
+    src/domain/TapDance.h
+
+    # Interfaces
+    src/interfaces/IDriver.h
 )
 
 # Resource files handling for MSVC
 set(CAPSICAIN_RESOURCES
-    capsicain/capsicain.rc
+    src/assets/capsicain.rc
 )
 
 # Define the executable
 add_executable(capsicain ${CAPSICAIN_SOURCES} ${CAPSICAIN_HEADERS} ${CAPSICAIN_RESOURCES})
 
-# Include directories
+# Include directories - src is the root for all includes
 target_include_directories(capsicain PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/capsicain
-    ${CMAKE_CURRENT_SOURCE_DIR}/capsicain/interception
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform
 )
 
 # Diagnostic information
@@ -85,13 +118,13 @@ message(STATUS "Platform: ${CMAKE_SYSTEM_NAME} - ${CMAKE_SIZEOF_VOID_P}bit")
 
 # Precompiled headers
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.16")
-    target_precompile_headers(capsicain PRIVATE capsicain/pch.h)
-    set_source_files_properties(capsicain/utils.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+    target_precompile_headers(capsicain PRIVATE src/platform/pch.h)
+    set_source_files_properties(src/legacy/utils.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 endif()
 
 # Find the interception library (lib or dll)
-set(INTERCEPTION_LIB "${CMAKE_CURRENT_SOURCE_DIR}/capsicain/interception.lib")
-set(INTERCEPTION_DLL "${CMAKE_CURRENT_SOURCE_DIR}/capsicain/interception.dll")
+set(INTERCEPTION_LIB "${CMAKE_CURRENT_SOURCE_DIR}/src/platform/interception.lib")
+set(INTERCEPTION_DLL "${CMAKE_CURRENT_SOURCE_DIR}/src/platform/interception.dll")
 
 # MSVC specific flags
 target_compile_options(capsicain PRIVATE /W3)
@@ -131,20 +164,20 @@ add_custom_command(TARGET capsicain POST_BUILD
         "${INTERCEPTION_DLL}"
         $<TARGET_FILE_DIR:capsicain>
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_SOURCE_DIR}/capsicain/capsicain.ini"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/assets/capsicain.ini"
         $<TARGET_FILE_DIR:capsicain>
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_SOURCE_DIR}/capsicain/AutoHotKey64.dll"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/assets/AutoHotKey64.dll"
         $<TARGET_FILE_DIR:capsicain>
     COMMENT "Copying interception.dll, capsicain.ini, and AutoHotKey64.dll to output directory"
 )
 
 # Update installation rules to include interception.dll
 install(TARGETS capsicain DESTINATION .)
-install(FILES 
-    "${CMAKE_CURRENT_SOURCE_DIR}/capsicain/capsicain.ini"
-    "${CMAKE_CURRENT_SOURCE_DIR}/capsicain/AutoHotKey64.dll"
-    "${CMAKE_CURRENT_SOURCE_DIR}/capsicain/interception.dll"
+install(FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/assets/capsicain.ini"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/assets/AutoHotKey64.dll"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/platform/interception.dll"
     "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
     DESTINATION .
 )

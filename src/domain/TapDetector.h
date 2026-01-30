@@ -7,7 +7,7 @@
  * It can be unit tested in isolation.
  */
 
-#include "../core/KeyEvent.h"
+#include "core/KeyEvent.h"
 
 namespace capsicain {
 

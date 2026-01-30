@@ -6,7 +6,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "../capsicain/domain/ComboMatcher.h"
+#include "domain/ComboMatcher.h"
 
 using namespace capsicain::domain;
 
@@ -59,6 +59,17 @@ TEST(ComboMatcherTest, DevicePattern_Combined_AndAndNot) {
     EXPECT_TRUE(deviceMatchesPattern(DEV_KEYBOARD1, DEV_KEYBOARD1, DEV_KEYBOARD2));
     EXPECT_FALSE(deviceMatchesPattern(DEV_KEYBOARD2, DEV_KEYBOARD1, DEV_KEYBOARD2));
     EXPECT_FALSE(deviceMatchesPattern(DEV_KEYBOARD1 | DEV_KEYBOARD2, DEV_KEYBOARD1, DEV_KEYBOARD2));
+}
+
+TEST(ComboMatcherTest, DevicePattern_LegacyDefault_AllDevices) {
+    // Legacy default: 0xFFFFFFFF with devNot=0 matches any device
+    EXPECT_TRUE(deviceMatchesPattern(DEV_KEYBOARD1, 0xFFFFFFFF, 0));
+    EXPECT_TRUE(deviceMatchesPattern(DEV_KEYBOARD2, 0xFFFFFFFF, 0));
+    EXPECT_TRUE(deviceMatchesPattern(0x0001, 0xFFFFFFFF, 0));
+    EXPECT_TRUE(deviceMatchesPattern(0x8000, 0xFFFFFFFF, 0));
+
+    // But if devNot is set, the special case doesn't apply
+    EXPECT_FALSE(deviceMatchesPattern(DEV_KEYBOARD1, 0xFFFFFFFF, DEV_KEYBOARD1));
 }
 
 

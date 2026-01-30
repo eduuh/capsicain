@@ -6,7 +6,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "../capsicain/domain/KeyMapper.h"
+#include "domain/KeyMapper.h"
 
 using namespace capsicain::domain;
 

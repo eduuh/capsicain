@@ -1,10 +1,10 @@
 #include <string>
 #include <map>
 
-#include "interception.h"
-#include "utils.h"
-#include "configUtils.h"
-#include "traybar.h"
+#include "platform/interception.h"
+#include "legacy/utils.h"
+#include "legacy/configUtils.h"
+#include "legacy/traybar.h"
 
 #define IFDEBUG if(options.debug && !globalState.secretSequenceRecording)
 #define IFTRACE if(false)
@@ -46,7 +46,8 @@ std::string getSymbolForIKStrokeState(unsigned short state);
 
 bool processOnOffKey();
 void InterceptionSendCurrentKeystroke();
-bool processCommand();
+void handleConfigSwitch(int scancode);
+// processCommand() replaced by CommandHandler class (see commands/CommandHandler.h)
 void processModifierState();
 bool processMessyKeys();
 void processRewireScancodeToVirtualcode();

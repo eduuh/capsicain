@@ -1,5 +1,5 @@
 #pragma once
-#include "scancodes.h"
+#include "legacy/scancodes.h"
 
 #ifndef MAPPINGS_H
 #define MAPPINGS_H

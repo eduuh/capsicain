@@ -1,6 +1,6 @@
 #pragma once
 
-#include "pch.h"
+#include "platform/pch.h"
 #include <iostream>
 #include <iomanip>
 #include <chrono>
@@ -13,13 +13,20 @@
 #include <chrono>
 #include <Windows.h>  //for Sleep()
 
-#include "capsicain.h"
-#include "constants.h"
-#include "modifiers.h"
-#include "scancodes.h"
-#include "resource.h"
-#include "led.h"
-#include "utils.h"
+#include "legacy/capsicain_legacy.h"
+#include "platform/constants.h"
+#include "legacy/modifiers.h"
+#include "legacy/scancodes.h"
+#include "platform/resource.h"
+#include "legacy/led.h"
+#include "legacy/utils.h"
+#include "commands/CommandHandler.h"
+#include "ui/ConsoleUI.h"
+#include "app/Application.h"
+#include "domain/TapDetector.h"
+#include "domain/ModifierTracker.h"
+#include "domain/KeyMapper.h"
+#include "domain/ComboMatcher.h"
 
 typedef int (*AHKTHREAD)(const wchar_t* aScript, const wchar_t* aCmdLine, const wchar_t* aTitle);
 typedef int (*AHKREADY)(int threadid);
@@ -41,6 +48,21 @@ struct Ahk
 } ahk;
 
 using namespace std;
+
+// Global ConsoleUI pointer for legacy compatibility
+static ConsoleUI* g_consoleUI = nullptr;
+
+// Adapter to bridge legacy global functions to IModifierQuery interface
+class LegacyModifierQuery : public capsicain::domain::IModifierQuery {
+public:
+    bool isModifier(capsicain::domain::VKeyCode vcode) const override {
+        return ::isModifier(static_cast<int>(vcode));
+    }
+
+    MOD getModifierBitmask(capsicain::domain::VKeyCode vcode) const override {
+        return ::getModifierBitmaskForVcode(static_cast<int>(vcode));
+    }
+};
 
 //try out if we can play doom when we have a TMK style temp layer shift key
 /*
@@ -364,7 +386,8 @@ int mousetoKey(InterceptionMouseStroke &mstroke, InterceptionKeyStroke *kstroke)
     return n;
 }
 
-int main()
+// Main implementation - extracted from main() to allow Application wrapper
+int capsicain_main_impl()
 {
     if (!initConsoleWindow())
     {
@@ -373,11 +396,15 @@ int main()
         return 0;
     }
 
+    // Initialize console UI early for startup messages
+    ConsoleUI consoleUI;
+    g_consoleUI = &consoleUI;
+
     interceptionState.interceptionContext = interception_create_context();
 
     IFPROF profiler.stopwatchRestart();
 
-    printHelloHeader();
+    consoleUI.printHeader();
 
     defineAllPrettyVKLabels(PRETTY_VK_LABELS);
 
@@ -422,6 +449,16 @@ int main()
 
     InterceptionDevice device;
     InterceptionStroke stroke;
+
+    // Initialize command handler for ESC+key sequences
+    CommandHandler commandHandler;
+
+    // Initialize domain components for refactored key processing
+    capsicain::TapDetector tapDetector;
+    capsicain::ModifierTracker modifierTracker;
+    capsicain::domain::KeyMapper keyMapper;
+    capsicain::domain::ComboMatcher comboMatcher;
+    LegacyModifierQuery modifierQuery;
 
     //CORE LOOP
     bool exit = false;
@@ -476,7 +513,7 @@ int main()
                 }
 
                 //low level debugging, show incoming raw key
-                IFTRACE printIKStrokeState(interceptionState.currentIKstroke);
+                IFTRACE consoleUI.printIKStrokeState(interceptionState.currentIKstroke);
 
                 //clear loop state
                 loopState = defaultLoopState;
@@ -576,7 +613,7 @@ int main()
                 {
                     if (globals.disableEscKey.find(loopState.scancode) == globals.disableEscKey.end())
                     {
-                        if (processCommand())
+                        if (commandHandler.handle(loopState.scancode))
                         {
                             continue;
                         }
@@ -660,14 +697,101 @@ int main()
                 if (!processMessyKeys())
                     continue;
 
-                //Tapdance
-                detectTapping();
+                //Tapdance - use refactored TapDetector
+                {
+                    // Convert InterceptionKeyStrokes to KeyEvents for TapDetector
+                    capsicain::KeyEvent currentEvent{
+                        static_cast<int>(interceptionState.currentIKstroke.code),
+                        (interceptionState.currentIKstroke.state & 1) == 0  // isDownstroke (state & 1 == 0 means down)
+                    };
+                    capsicain::KeyEvent prev1Event{
+                        static_cast<int>(interceptionState.previousIKstroke1.code),
+                        (interceptionState.previousIKstroke1.state & 1) == 0
+                    };
+                    capsicain::KeyEvent prev2Event{
+                        static_cast<int>(interceptionState.previousIKstroke2.code),
+                        (interceptionState.previousIKstroke2.state & 1) == 0
+                    };
+
+                    // Detect tap patterns using refactored domain component
+                    capsicain::TapResult tapResult = tapDetector.detect(
+                        currentEvent, prev1Event, prev2Event,
+                        interceptionState.currentIKstroke.state,
+                        interceptionState.previousIKstroke1.state,
+                        interceptionState.previousIKstroke2.state
+                    );
+
+                    // Store results back into loopState (for now, to maintain compatibility)
+                    loopState.tapped = tapResult.tapped;
+                    loopState.tappedSlow = tapResult.tappedSlow;
+                    loopState.tapHoldMake = tapResult.tapHoldMake;
+                    loopState.repeat = tapResult.repeat;
+                }
                 //slow tap breaks tapping
                 if (loopState.tappedSlow)
+                {
                     modifierState.modifierTapped = 0;
+                    modifierTracker.clearAllTapped();  // Sync to ModifierTracker
+                }
 
-                //hard rewire all REWIREd keys
-                processRewireScancodeToVirtualcode();
+                //hard rewire all REWIREd keys - use refactored KeyMapper
+                {
+                    // Build RewireEntry from legacy rewiremap
+                    capsicain::domain::RewireEntry rewireEntry;
+                    rewireEntry.outKey = allMaps.rewiremap[loopState.vcode][REWIRE_OUT];
+                    rewireEntry.tapKey = allMaps.rewiremap[loopState.scancode][REWIRE_TAP];
+                    rewireEntry.tapHoldKey = allMaps.rewiremap[loopState.scancode][REWIRE_TAPHOLD];
+
+                    // Build RewireContext
+                    capsicain::domain::RewireContext rewireContext;
+                    rewireContext.scancode = loopState.scancode;
+                    rewireContext.vcode = loopState.vcode;
+                    rewireContext.isDownstroke = loopState.isDownstroke;
+                    rewireContext.isTapped = loopState.tapped;
+                    rewireContext.isTapHoldMake = loopState.tapHoldMake;
+                    rewireContext.activeTapHoldKey = modifierState.tapAndHoldKey;
+
+                    // Apply rewire mapping using refactored domain component
+                    capsicain::domain::RewireResult rewireResult = keyMapper.mapRewire(
+                        rewireContext, rewireEntry, &modifierQuery
+                    );
+
+                    // Apply results back to loopState and modifierState
+                    loopState.vcode = rewireResult.outputKey;
+                    loopState.isModifier = rewireResult.isModifier;
+
+                    // Add any generated events to the sequence
+                    for (const auto& evt : rewireResult.eventSequence) {
+                        loopState.resultingVKeyEventSequence.push_back({
+                            static_cast<int>(evt.keyCode),
+                            evt.isDown
+                        });
+                    }
+
+                    // Update modifier state based on rewire result
+                    if (rewireResult.modifiersToClear != 0) {
+                        modifierState.modifierDown &= ~rewireResult.modifiersToClear;
+                    }
+                    if (rewireResult.tappedToClear != 0) {
+                        modifierState.modifierTapped &= ~rewireResult.tappedToClear;
+                        modifierTracker.clearAllTapped();  // Sync: clear all tapped in tracker too
+                    }
+
+                    // Update tap-hold key
+                    if (rewireResult.newTapHoldKey != 0) {
+                        if (rewireResult.newTapHoldKey == -1) {
+                            modifierState.tapAndHoldKey = -1;
+                        } else {
+                            modifierState.tapAndHoldKey = rewireResult.newTapHoldKey;
+                        }
+                        modifierTracker.setTapHoldKey(modifierState.tapAndHoldKey);  // Sync to tracker
+                    }
+
+                    // Check if key should be suppressed
+                    if (rewireResult.shouldNop) {
+                        continue;
+                    }
+                }
                 if (loopState.vcode == SC_NOP)   //rewired to NOP to disable keys
                 {
                     IFDEBUG cout << " (r2NOP)";
@@ -678,23 +802,133 @@ int main()
                 {
                     cout << endl;
                     IFPROF cout << "(" << setw(5) << dec << timeBetweenTimepointsUS(profiler.timepointPreviousKeyEvent, profiler.timepointLoopStart) / 1000 << " m) ";
-                    printLoopState1Input();
+                    consoleUI.printLoopState1Input();
                 }
 
-                //evaluate modifiers
-                processModifierState();
-            
-                IFDEBUG printLoopState2Modifier();
+                //evaluate modifiers - use refactored ModifierTracker
+                {
+                    // Use ModifierTracker to update modifier state
+                    modifierTracker.update(loopState.vcode, loopState.isDownstroke, loopState.tapped);
 
-                //evaluate modified keys
-                processCombos();
+                    // Sync ModifierTracker state back to global modifierState (for compatibility)
+                    modifierState.modifierDown = modifierTracker.getDownMask();
+                    modifierState.modifierTapped = modifierTracker.getTappedMask();
+                    modifierState.modifierForceDown = modifierTracker.getForcedMask();
+                    modifierState.activeDeadkey = modifierTracker.getDeadkey();
+                    modifierState.tapAndHoldKey = modifierTracker.getTapHoldKey();
+                }
 
-                //alphakeys: basic character key layout. Don't remap the Ctrl combos?
-                processMapAlphaKeys();
+                IFDEBUG consoleUI.printLoopState2Modifier();
+
+                //evaluate modified keys - use refactored ComboMatcher
+                {
+                    // Helper to convert legacy ModifierCombo to ComboRule
+                    auto convertCombos = [](const vector<ModifierCombo>& legacyCombos) {
+                        vector<capsicain::domain::ComboRule> rules;
+                        for (const auto& combo : legacyCombos) {
+                            capsicain::domain::ComboRule rule;
+                            rule.triggerKey = combo.vkey;
+                            rule.modAnd = combo.modAnd;
+                            rule.modOr = combo.modOr;
+                            rule.modNot = combo.modNot;
+                            rule.modTap = combo.modTap;
+                            rule.modTapAnd = combo.modTapAnd;
+                            rule.devAnd = combo.devAnd;
+                            rule.devNot = combo.devNot;
+                            rule.deadkey = combo.deadkey;
+                            // Convert VKeyEvent sequence to ComboKeyEvent sequence
+                            for (const auto& evt : combo.keyEventSequence) {
+                                rule.resultSequence.push_back({
+                                    static_cast<capsicain::domain::VKeyCode>(evt.vcode),
+                                    evt.isDownstroke
+                                });
+                            }
+                            rules.push_back(rule);
+                        }
+                        return rules;
+                    };
+
+                    // Build ComboMatchContext
+                    capsicain::domain::ComboMatchContext comboContext;
+                    comboContext.currentKey = loopState.vcode;
+                    comboContext.modifiersDown = modifierState.modifierDown;
+                    comboContext.modifiersTapped = modifierState.modifierTapped;
+                    // Convert device ID to bitmask (device IDs are 1-20, bitmask is 1 << (id-1))
+                    comboContext.deviceMask = (interceptionState.interceptionDevice > 0)
+                        ? (1 << (interceptionState.interceptionDevice - 1))
+                        : 0;
+                    comboContext.activeDeadkey = modifierState.activeDeadkey;
+
+                    // Match combos using refactored domain component
+                    capsicain::domain::ComboMatchResult comboResult;
+
+                    if (loopState.isDownstroke) {
+                        auto downCombos = convertCombos(allMaps.modCombos[INI_TAG_COMBOS]);
+                        auto repeatCombos = convertCombos(allMaps.modCombos[INI_TAG_REPEATCOMBOS]);
+                        comboResult = comboMatcher.matchDownstroke(
+                            downCombos, repeatCombos, comboContext, loopState.repeat
+                        );
+                    } else {
+                        auto upCombos = convertCombos(allMaps.modCombos[INI_TAG_UPCOMBOS]);
+                        auto tapCombos = convertCombos(allMaps.modCombos[INI_TAG_TAPCOMBOS]);
+                        auto slowCombos = convertCombos(allMaps.modCombos[INI_TAG_SLOWCOMBOS]);
+                        comboResult = comboMatcher.matchUpstroke(
+                            upCombos, tapCombos, slowCombos, comboContext,
+                            loopState.tapped, loopState.tappedSlow
+                        );
+                    }
+
+                    // Apply combo result
+                    if (comboResult.matched) {
+                        // Convert ComboKeyEvent sequence back to VKeyEvent
+                        loopState.resultingVKeyEventSequence.clear();
+                        for (const auto& evt : comboResult.resultSequence) {
+                            loopState.resultingVKeyEventSequence.push_back({
+                                static_cast<int>(evt.keyCode),
+                                evt.isDown
+                            });
+                        }
+
+                        // Clear tapped state if needed
+                        if (comboResult.shouldClearTapped) {
+                            modifierState.modifierTapped = 0;
+                            modifierTracker.clearAllTapped();
+                        }
+                    }
+
+                    // Clear deadkey for non-modifier keys
+                    if (!loopState.isModifier) {
+                        modifierState.activeDeadkey = 0;
+                    }
+                }
+
+                //alphakeys: basic character key layout - use refactored KeyMapper
+                {
+                    // Build AlphaMapOptions
+                    capsicain::domain::AlphaMapOptions alphaOptions;
+                    alphaOptions.flipZY = options.flipZy;
+                    alphaOptions.ctrlWinBlocksAlphaMapping = options.LControlLWinBlocksAlphaMapping;
+
+                    // Apply alpha mapping using refactored domain component
+                    capsicain::domain::AlphaMapResult alphaResult = keyMapper.mapAlpha(
+                        loopState.vcode,
+                        allMaps.alphamap,
+                        alphaOptions,
+                        loopState.isModifier,
+                        IS_LCTRL_DOWN,
+                        IS_LWIN_DOWN
+                    );
+
+                    // Update vcode with mapped result
+                    loopState.vcode = alphaResult.mappedKey;
+                }
 
                 //break tapped state?
                 if (!isModifier(loopState.vcode))
+                {
                     modifierState.modifierTapped = 0;
+                    modifierTracker.clearAllTapped();  // Sync to ModifierTracker
+                }
 
                 IFPROF
                 {
@@ -703,7 +937,7 @@ int main()
                 profiler.countOutgoing++;
                 if (mappingtime > profiler.worstMappingTimeUS)
                     profiler.worstMappingTimeUS = mappingtime;
-                IFDEBUG printLoopStateMappingTime(mappingtime);
+                IFDEBUG consoleUI.printLoopStateMappingTime(mappingtime);
                 }
 
                 sendResultingKeyOrSequence();
@@ -717,7 +951,7 @@ int main()
                     cout << "\t (slow send: " << dec << sendingtime << " u)";
                 }
 
-                IFDEBUG printLoopState4TapState();
+                IFDEBUG consoleUI.printLoopState4TapState();
             }
         }
         else
@@ -730,6 +964,19 @@ int main()
     cout << endl << "bye" << endl;
     return 0;
 }
+////////////////////////////////////END MAIN IMPL//////////////////////////////////////
+
+// New main() - uses Application class for better organization
+int main()
+{
+    Application app;
+
+    if (!app.initialize())
+        return 1;
+
+    return app.run();
+}
+
 ////////////////////////////////////END MAIN//////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -908,153 +1155,6 @@ bool processMessyKeys()
     return true;
 }
 
-void detectTapping()
-{
-    //Tapped key?
-    loopState.tapped =
-        !loopState.isDownstroke
-        && (interceptionState.currentIKstroke.code == interceptionState.previousIKstroke1.code)
-        && ((interceptionState.previousIKstroke1.state & 1) == 0);
-
-    //Slow tap?
-    loopState.tappedSlow =
-        loopState.tapped
-        && (interceptionState.previousIKstroke2.code == interceptionState.currentIKstroke.code)
-        && ((interceptionState.previousIKstroke2.state & 1) == 0);
-
-    if (loopState.tappedSlow)
-        loopState.tapped = false;
-
-    //Tap and hold Make? (last three same code, and down-up-down sequence)
-    if (interceptionState.previousIKstroke1.code == interceptionState.currentIKstroke.code
-        && interceptionState.previousIKstroke2.code == interceptionState.currentIKstroke.code
-        && ((interceptionState.currentIKstroke.state & 1) == 0)
-        && ((interceptionState.previousIKstroke1.state & 1) == 1)
-        && ((interceptionState.previousIKstroke2.state & 1) == 0)
-        )
-    {
-        loopState.tapHoldMake = true;
-    }
-
-    if ((interceptionState.currentIKstroke.state & 1) == 0 &&
-        (interceptionState.previousIKstroke1.state & 1) == 0 &&
-        interceptionState.previousIKstroke1.code == interceptionState.currentIKstroke.code)
-        loopState.repeat = true;
-
-    //cannot detect tapHold Break here. This is done by ProcessRewire()
-}
-
-void processModifierState()
-{
-    MOD modBitmask = getModifierBitmaskForVcode(loopState.vcode);
-
-    //set internal modifier state
-    if (loopState.isDownstroke)
-        modifierState.modifierDown |= modBitmask;
-    else
-        modifierState.modifierDown &= ~modBitmask;
-
-    //Default tapping logic without specific rules
-    //Tapped mod key sets tapped bitmask. You can combine mod-taps (like tap-Ctrl then tap-Alt).
-    if (loopState.tapped)
-        modifierState.modifierTapped |= modBitmask;
-
-    modifierState.modifierDown |= modifierState.modifierForceDown;
-}
-
-//handle all REWIRE configs. Rewire to new vcode; check for Tapped rules
-void processRewireScancodeToVirtualcode()
-{
-    //ignore auto-repeating tapHold key
-    if (loopState.scancode == modifierState.tapAndHoldKey && loopState.isDownstroke)
-    {
-        loopState.vcode = SC_NOP;
-        return;
-    }
-
-    int rewoutkey = allMaps.rewiremap[loopState.vcode][REWIRE_OUT];
-    if (rewoutkey >= 0)
-    {
-        //Rewire
-        loopState.vcode = rewoutkey;
-
-        //tapped?
-        int rewtapkey = allMaps.rewiremap[loopState.scancode][REWIRE_TAP];
-        if (loopState.tapped && rewtapkey >= 0)  //ifTapped definition applies
-        {
-            //rewired tap (like TAB to TAB) clears all previous modifier taps. Good rule? Consider that maybe "outkey tapped" detection happens(?)
-            modifierState.modifierTapped = 0;
-
-            //release the preceding "rewired on press" result, only for hardware keys (e.g. "rewire Tab Shift Tab": Shift down was sent when tap arrives)
-            loopState.resultingVKeyEventSequence.push_back({ rewoutkey, false });
-            //clear the 'modifier down' state for preceding "to mod" def
-            if (isModifier(loopState.vcode))
-            {
-                MOD modBitmask = getModifierBitmaskForVcode(loopState.vcode);
-                if (modBitmask != 0)
-                    modifierState.modifierDown &= ~modBitmask; //undo previous key down, e.g. clear internal 'MOD10 is down'
-            }
-            //send ifTapped key
-            loopState.vcode = rewtapkey;
-            loopState.resultingVKeyEventSequence.push_back({ rewtapkey, true });
-            loopState.resultingVKeyEventSequence.push_back({ rewtapkey, false });
-        }
-
-        //tapHold Make?
-        if (loopState.tapHoldMake)
-        {
-            int rewtapholdkey = allMaps.rewiremap[loopState.scancode][REWIRE_TAPHOLD];
-            if (rewtapholdkey >= 0)
-            {
-                if (modifierState.tapAndHoldKey < 0)
-                {
-                    modifierState.tapAndHoldKey = loopState.scancode;  //remember the original scancode
-                    if(rewtapholdkey <= 255) //send make only for real keys
-                        loopState.resultingVKeyEventSequence.push_back({ rewtapholdkey, true });
-                    loopState.vcode = rewtapholdkey;
-
-                    //clear the preceding tapped state(s)
-                    int rewtappedkey = allMaps.rewiremap[loopState.scancode][REWIRE_TAP];
-                    //1. Tap&Hold of a key rewired to modifier always first triggers the generic "modifier tapped"
-                    MOD modBitmask1 = getModifierBitmaskForVcode(rewoutkey);
-                    if (modBitmask1 != 0)
-                        modifierState.modifierTapped &= ~modBitmask1;
-                    //2. Explicit "Rewire in out ifTapped" (should probably never combine ifTapped with ifTappedAndHold, but not sure)
-                    MOD modBitmask2 = getModifierBitmaskForVcode(rewtappedkey);
-                    if (modBitmask2 != 0)
-                        modifierState.modifierTapped &= ~modBitmask2;
-
-                    IFTRACE cout << endl << "Make taphold rewired: " << hex << rewtapholdkey;
-                }
-                else
-                    error("Ignoring second tap-and-hold event; only one can be active.");
-            }
-        }
-        //tapHold Break?
-        if (!loopState.isDownstroke && loopState.scancode == modifierState.tapAndHoldKey)
-        {
-            int rewtapholdkey = allMaps.rewiremap[loopState.scancode][REWIRE_TAPHOLD];
-            if (rewtapholdkey >= 0)
-            {
-                modifierState.tapAndHoldKey = -1;
-                if (rewtapholdkey < 255) //send break only for real keys
-                    loopState.resultingVKeyEventSequence.push_back({ rewtapholdkey, false });
-                else
-                    loopState.vcode = SC_NOP;
-                loopState.vcode = rewtapholdkey;
-                IFTRACE cout << endl << "Break taphold rewired: " << hex << rewtapholdkey;
-            }
-            else
-            {
-                error("BUG: undefined tapHold should never have been stored");
-            }
-        }
-    }
-
-    //update the internal modifier state
-    loopState.isModifier = isModifier(loopState.vcode) ? true : false;
-}
-
 bool testDeviceMask(DEV maskAnd, DEV maskNot, int dev)
 {
     if (maskAnd == 0xFFFFFFFF && maskNot == 0)
@@ -1067,279 +1167,24 @@ bool testDeviceMask(DEV maskAnd, DEV maskNot, int dev)
     return false;
 }
 
-void processCombos()
+// Helper: Handle config switching commands (ESC+0 through ESC+9)
+void handleConfigSwitch(int scancode)
 {
-    auto process = [](vector<ModifierCombo> &combos, bool clearTapped = false){
-        for (ModifierCombo modcombo : combos)
-        {
-            if (modcombo.vkey == loopState.vcode && testDeviceMask(modcombo.devAnd, modcombo.devNot, interceptionState.interceptionDevice))
-            {
-                if (
-                    (modifierState.activeDeadkey == modcombo.deadkey) &&
-                    (modifierState.modifierDown & modcombo.modAnd) == modcombo.modAnd &&
-                    (modcombo.modOr == 0 || (modifierState.modifierDown & modcombo.modOr) > 0) &&
-                    (modifierState.modifierDown & modcombo.modNot) == 0 &&
-                    (modifierState.modifierTapped & modcombo.modTap) == modcombo.modTap &&
-                    ((modifierState.modifierTapped & modcombo.modTapAnd) == modcombo.modTapAnd ||
-                    (modifierState.modifierDown & modcombo.modTapAnd) == modcombo.modTapAnd)
-                    )
-                {
-                    loopState.resultingVKeyEventSequence = modcombo.keyEventSequence;
-                    if (clearTapped)
-                        modifierState.modifierTapped = 0;
-                    break;
-                }
-            }
-        }
-    };
-
-    if (loopState.isDownstroke)
-    {
-        process(allMaps.modCombos[INI_TAG_COMBOS], true);
-        if (loopState.repeat)
-            process(allMaps.modCombos[INI_TAG_REPEATCOMBOS]);
-    }
-    else
-    {
-        process(allMaps.modCombos[INI_TAG_UPCOMBOS]);
-        if (loopState.tappedSlow)
-            process(allMaps.modCombos[INI_TAG_SLOWCOMBOS]);
-        if (loopState.tapped)
-            process(allMaps.modCombos[INI_TAG_TAPCOMBOS]);
-    }
-    if(!loopState.isModifier)
-        modifierState.activeDeadkey = 0;
-}
-
-void processMapAlphaKeys()
-{
-    if (loopState.isModifier ||
-        (options.LControlLWinBlocksAlphaMapping && (IS_LCTRL_DOWN || IS_LWIN_DOWN)))
-    {
-        return;
-    }
-
-    loopState.vcode = allMaps.alphamap[loopState.vcode];
-
-    if (options.flipZy)
-    {
-        switch (loopState.vcode)
-        {
-        case SC_Y:		loopState.vcode = SC_Z;		break;
-        case SC_Z:		loopState.vcode = SC_Y;		break;
-        }
-    }
-}
-
-// [ESC]+x combos
-// returns false if exit was requested
-// uses the unwired keys for regular keys, and wired modifiers
-bool processCommand()
-{
-    bool continueLooping = true;
-    bool popupConsole = false;
-    cout << endl << endl << "::";
-    
-    switch (loopState.scancode)
-    {
-
-    case SC_X:
-    {
-        cout << endl << endl << "ESC+X :: EXIT";
-        return false;
-    }
-    case SC_0:
+    if (scancode == SC_0)
     {
         cout << endl << "CONFIG CHANGE: " << DISABLED_CONFIG_NUMBER;
-        switchConfig(DISABLED_CONFIG_NUMBER, 0);
-        break;
+        switchConfig(DISABLED_CONFIG_NUMBER, false);
     }
-    case SC_1:
-    case SC_2:
-    case SC_3:
-    case SC_4:
-    case SC_5:
-    case SC_6:
-    case SC_7:
-    case SC_8:
-    case SC_9:
+    else if (scancode >= SC_1 && scancode <= SC_9)
     {
-        int config = loopState.scancode - 1;
+        int config = scancode - 1;
         cout << endl << "CONFIG CHANGE: " << config;
         switchConfig(config, false);
-        break;
     }
-    case SC_BACK:
-    {
-        cout << endl << endl << "::RESET STATE";
-        reset();
-        resetCapsNumScrollLock();
-        break;
-    }
-    case SC_T:
-    {
-        if (IsCapsicainInTray())
-        {
-            cout << "Show in taskbar";
-            ShowInTaskbar();
-        }
-        else
-        {
-            cout << "Show traybar";
-            ShowInTraybar(globalState.activeConfig != 0 , globalState.recordingMacro >= 0, globalState.activeConfig);
-        }
-        break;
-    }
-    case SC_Q:   // quit only if a debug build
-#ifdef NDEBUG
-        sendVKeyEvent({ SC_ESCAPE, true });
-        sendVKeyEvent({ SC_Q, true });
-        sendVKeyEvent({ SC_Q, false });
-        sendVKeyEvent({ SC_ESCAPE, false });
-#else
-        continueLooping = false;
-#endif
-        break;
-    case SC_W:
-        options.flipAltWinOnAppleKeyboards = !options.flipAltWinOnAppleKeyboards;
-        cout << "Flip ALT<>WIN for Apple boards: " << (options.flipAltWinOnAppleKeyboards ? "ON" : "OFF") << endl;
-        break;
-    case SC_E:
-        cout << "ERROR LOG: " << endl << errorLog << endl;
-        popupConsole = true;
-        break;
-    case SC_R:
-        cout << "RELOAD INI";
-        getHardwareId();
-        reload();
-        cout << endl << (globalState.deviceIsAppleKeyboard ? "APPLE keyboard (flipping Win<>Alt)" : "PC keyboard");
-        break;
-    case SC_Y:
-        cout << "Stop AHK";
-        unloadAHK();
-        break;
-    case SC_I:
-    {
-        cout << "INI filtered for config " << globalState.activeConfigName;
-        vector<string> tmpAssembledConfig = assembleConfig(globalState.activeConfig);
-        for (string line : tmpAssembledConfig)
-            cout << endl << line;
-        break;
-    }
-    case SC_A:
-    {
-        cout << "Start AHK";
-        loadAHK();
-        break;
-    }
-    case SC_S:
-        printStatus();
-        popupConsole = true;
-        break;
-    case SC_D:
-        options.debug = !options.debug;
-        cout << "DEBUG mode: " << (options.debug ? "ON" : "OFF");
-        popupConsole = options.debug;
-        break;
-    case SC_H:
-        printHelp();
-        popupConsole = true;
-        break;
-    case SC_J:
-        cout << "MACRO 0 START RECORDING";
-        globalState.recordingMacro = 0;
-        globalState.recordedMacros[0].clear();
-        updateTrayIcon(true, globalState.recordingMacro >= 0, globalState.activeConfig);
-        break;
-    case SC_K:
-        if (globalState.recordingMacro == 0)
-        {
-            while (globalState.recordedMacros[0].size() > 0 && globalState.recordedMacros[0].back().isDownstroke)  //remove all key down at the end, caused by pressing ESC+K
-                globalState.recordedMacros[0].pop_back();
-            while (globalState.recordedMacros[0].size()>0 && !globalState.recordedMacros[0].front().isDownstroke)  //remove all key-up at the beginning, caused by releasing the shortcut ESC+J
-                globalState.recordedMacros[0].erase(globalState.recordedMacros[0].begin());
-            cout << "MACRO 0 STOP RECORDING (" << globalState.recordedMacros[0].size() << ")";
-        }
-        else
-            cout << "MACRO 0 RECORDING ALREADY STOPPED";
-
-        globalState.recordingMacro = -1;
-        updateTrayIcon(true, globalState.recordingMacro >= 0, globalState.activeConfig);
-        break;
-    case SC_L:
-        cout << "MACRO 0 PLAYBACK";
-        playKeyEventSequence(globalState.recordedMacros[0]);
-        break;
-    case SC_SEMI:
-    {
-        cout << "COPY MACRO 0 TO CLIPBOARD";
-        string macro = "";
-        for (VKeyEvent key : globalState.recordedMacros[0])
-        {
-            if (macro.size() > 0)
-                macro += "_";
-            if (key.isDownstroke)
-                macro += "&";
-            else
-                macro += "^";
-            macro += PRETTY_VK_LABELS[key.vcode];
-        }
-        copyToClipBoard(macro);
-        break;
-    }
-    case SC_Z:
-        options.flipZy = !options.flipZy;
-        cout << "Flip Z<>Y mode: " << (options.flipZy ? "ON" : "OFF");
-        break;
-    case SC_C:
-        cout << "List of all Key Labels for scancodes" << endl
-             << "------------------------------------" << endl;
-        printKeylabels();
-        popupConsole = true;
-        break;
-    case SC_COMMA:
-        if (options.delayForKeySequenceMS >= 1)
-            options.delayForKeySequenceMS -= 1;
-        cout << "delay between characters in key sequences (ms): " << dec << options.delayForKeySequenceMS;
-        break;
-    case SC_DOT:
-        if (options.delayForKeySequenceMS <= 100)
-            options.delayForKeySequenceMS += 1;
-        cout << "delay between characters in key sequences (ms): " << dec << options.delayForKeySequenceMS;
-        break;
-    /*case SC_B:
-        betaTest();
-        break;*/
-    case SC_M:
-        options.enableMouse ^= true;
-        if (interceptionState.interceptionContext)
-        {
-            if (options.enableMouse)
-            {
-                interception_set_filter(interceptionState.interceptionContext, interception_is_mouse, INTERCEPTION_FILTER_MOUSE_ALL & ~INTERCEPTION_FILTER_MOUSE_MOVE);
-                cout << endl << "MOUSE INPUT ENABLED";
-            }
-            else
-            {
-                interception_set_filter(interceptionState.interceptionContext, interception_is_mouse, INTERCEPTION_FILTER_MOUSE_NONE);
-                cout << endl << "MOUSE INPUT DISABLED";
-            }
-        }
-        break;
-    default: 
-    {
-        cout << "Unknown command";
-        break;
-    }
-    }
-
-    if(popupConsole)
-    {
-        ShowInTaskbar();
-    }
-    return continueLooping;
 }
 
+// processCommand() has been replaced by CommandHandler class
+// See commands/CommandHandler.h and commands/CommandHandler.cpp
 
 
 std::map<uint8_t, Device>* getHardwareId(bool refresh)
@@ -1999,156 +1844,29 @@ void releaseAllSentKeys()
 }
 
 
-void printHelloHeader()
-{
-    string line1 = "Capsicain v" VERSION;
-#ifdef NDEBUG
-    line1 += " (Release build)";
-#else
-    line1 += " (DEBUG build)";
-#endif
-    size_t linelen = line1.length();
-
-    cout << endl;
-    for (int i = 0; i < linelen; i++)
-        cout << "-";
-    cout << endl << line1 << endl;
-    for (int i = 0; i < linelen; i++)
-        cout << "-";
-    cout << endl;
-}
+//================================================================
+// Console UI Functions - Thin wrappers for ConsoleUI class
+// These exist for compatibility with legacy code
+//================================================================
 
 void printOptions()
 {
-    cout
-        << endl << endl << "OPTIONs"
-        << endl << (options.debug ? "ON :" : "off: --") << " debug output for each key event"
-        << endl << (options.flipZy ? "ON :" : "off: --") << " Z <-> Y"
-        << endl << (options.flipAltWinOnAppleKeyboards ? "ON :" : "off: --") << " Alt <-> Win for Apple keyboards"
-        << endl << (options.LControlLWinBlocksAlphaMapping ? "ON :" : "off: --") << " Left Control and Win block alpha key mapping ('Ctrl + C is never changed')"
-        << endl << (options.processOnlyFirstKeyboard ? "ON :" : "off: --") << " Process only the keyboard that sent the first key"
-        << endl
-        ;
+    if (g_consoleUI) g_consoleUI->printOptions();
 }
 
 void printStatus()
 {
-    int numMakeSent = 0;
-    for (int i = 0; i < 255; i++)
-    {
-        if (globalState.keysDownSent[i])
-            numMakeSent++;
-    }
-    cout << "STATUS" << endl << endl
-        << "Capsicain version: " << VERSION << endl
-        << "ini version: " << globals.iniVersion << endl
-        << "active config: " << globalState.activeConfig << " = " << globalState.activeConfigName << endl
-        << "Capsicain on/off key: [" << (globals.capsicainOnOffKey >= 0 ? getPrettyVKLabel(globals.capsicainOnOffKey) : "(not defined)") << "]" << endl
-        << "keyboard device id: " << globalState.deviceIdKeyboard << endl
-        << "Apple keyboard: " << globalState.deviceIsAppleKeyboard << endl
-        << "delay between keys in sequences (ms): " << options.delayForKeySequenceMS << endl
-        << "number of keys-down sent: " << dec <<   numMakeSent << endl
-        << (errorLog.length() > 1 ? "ERROR LOG contains entries" : "clean error log") << " (" << dec << errorLog.length() << " chars)"
-        ;
-
-    IFPROF cout << endl << endl << "Profiling statistics (microseconds)"
-        << endl << "Incoming / Sent out: " << profiler.countIncoming << " / " << profiler.countOutgoing
-        << endl << "Average mapping time: " << profiler.totalMappingTimeUS / profiler.countOutgoing
-        << endl << "Average sending time: " << profiler.totalSendingTimeUS / profiler.countOutgoing
-        << endl << "Worst mapping time: " << profiler.worstMappingTimeUS
-        << endl << "Worst sending time: " << profiler.worstSendingTimeUS
-        ;
-
-    IFDEBUG {
-        cout << endl << endl << "Interception keyboards:";
-        for (int i = 1; i <= INTERCEPTION_MAX_DEVICE; ++i)
-        {
-            if (allMaps.devices.find(i) != allMaps.devices.end())
-            {
-                if (i == 11)
-                    cout << endl << "Interception mice:";
-                cout << endl << i << ": " << allMaps.devices[i].id;
-            }
-        }
-    }
-
-    printOptions();
-}
-
-void printIKStrokeState(InterceptionKeyStroke iks)
-{
-    cout << endl << "IKS: " << hex << iks.code
-        << " " << iks.state
-        << " = " << getPrettyVKLabel(iks.code)
-        << " i" << iks.information;
-}
-
-void printLoopState1Input()
-{
-    cout
-        << " ["
-        << dec << setw(2) << interceptionState.interceptionDevice << " " << hex << setw(2) << interceptionState.currentIKstroke.code << " " << interceptionState.currentIKstroke.state
-        << "= " << setw(8) << (loopState.vcode == loopState.scancode ? "" : PRETTY_VK_LABELS[loopState.scancode] + " > ")
-        << setw(8) << getPrettyVKLabel(loopState.vcode) << setw(2) << left << getSymbolForIKStrokeState(interceptionState.currentIKstroke.state) << right
-        << "] ";
-}
-
-void printLoopState2Modifier()
-{
-    string mdown = modifierState.modifierDown > 0 ? stringIntToHex(modifierState.modifierDown,0) : "";
-    string mtapp = modifierState.modifierTapped > 0 ? stringIntToHex(modifierState.modifierTapped,0) : "";
-    cout << "[M:" << setw(8) << mdown
-         << " T:" << setw(8) << mtapp
-         << " D:" << setw(6) << (modifierState.activeDeadkey > 0 ? getPrettyVKLabel(modifierState.activeDeadkey): "")
-         << "] ";
-}
-
-void printLoopStateMappingTime(long us)
-{
-    cout << "  (" << setw(5) << dec << us << " u)";
-}
-
-void printLoopState4TapState()
-{
-    cout << (loopState.tappedSlow ? " (tap slow)" : "");
-    cout << (loopState.tapped ? " (tap)" : "");
-
-    IFTRACE if (loopState.tapHoldMake) 
-        cout << " (TapHold:" << hex << interceptionState.currentIKstroke.code << ")";
-    if (modifierState.tapAndHoldKey >= 0)
-        cout << " (TapHoldKey: " << hex << modifierState.tapAndHoldKey << ")";
-}
-
-void printKeylabels()
-{
-    for (int i = 0; i <= 255; i++)
-        cout << "sc " << uppercase << hex << i << " = " << PRETTY_VK_LABELS[i] << endl;
+    if (g_consoleUI) g_consoleUI->printStatus();
 }
 
 void printHelp()
 {
-    cout << "HELP" << endl << endl
-        << "Press [ESC] + [key] for core commands" << endl << endl
-        << "[H] Help" << endl
-        << "[X] Exit" << endl
-        << "[0]..[9] switch configs. [0] is the unchangeable empty 'do nothing but listen for commands' config" << endl
-        << "[W] flip ALT <-> WIN on Apple keyboards" << endl
-        << "[Z] (labeled [Y] on GER keyboard): flip Y <-> Z keys" << endl
-        << "[S] Status" << endl
-        << "[D] Debug mode output" << endl
-        << "[E] Error log" << endl
-        << "[C] Print list of key labels for all scancodes" << endl
-        << "[R] Reset and reload the .ini file" << endl
-        << "[T] Move Taskbar icon to Tray and back" << endl
-        << "[I] Show processed Ini for the active config" << endl
-        << "[A] Autohotkey start" << endl
-        << "[Y] autohotkeY stop" << endl
-        << "[J][K][L][;] Macro Recording: Start,Stop,Playback,Copy macro definition to clipboard." << endl
-        << "[,] and [.]: delay between keys in sequences -/+ 1ms " << endl
-        /*<< "[Q] (dev feature) Stop the debug build if both release and debug are running" << endl*/
-        << "[M] Toggle mouse input support" << endl
-        << endl << "These commands work anywhere, Capsicain does not have to be the active window."
-        ;
+    if (g_consoleUI) g_consoleUI->printHelp();
+}
+
+void printKeylabels()
+{
+    if (g_consoleUI) g_consoleUI->printKeylabels();
 }
 
 void normalizeIKStroke(InterceptionKeyStroke &ikstroke) {

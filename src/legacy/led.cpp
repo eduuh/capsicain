@@ -1,13 +1,13 @@
 // bootstrapped with helpful pointers from 
 //https://www.codeguru.com/cpp/w-p/system/keyboard/article.php/c2825/Manipulating-the-Keyboard-Lights-in-Windows-NT.htm
 
-#include "pch.h"
+#include "platform/pch.h"
 #include <windows.h>
 #include <winioctl.h>
-#include "led.h"
+#include "legacy/led.h"
 #include <iostream>
-#include "capsicain.h"
-#include "scancodes.h"
+#include "legacy/capsicain_legacy.h"
+#include "legacy/scancodes.h"
 
 //set the actual LED
 int ledSendCommand(HANDLE hKeyboard, USHORT ledFlags)

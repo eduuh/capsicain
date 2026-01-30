@@ -6,7 +6,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "scancodes.h"
+#include "legacy/scancodes.h"
 
 // Forward declarations
 void defineAllPrettyVKLabels(std::string prettyVKLabels[]);

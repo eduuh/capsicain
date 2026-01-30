@@ -22,7 +22,7 @@ namespace capsicain {
 namespace domain {
 
 using MOD = uint32_t;
-using DEV = uint16_t;
+using DEV = uint32_t;  // Device mask (matches platform definition)
 using VKeyCode = uint16_t;
 
 /**
@@ -92,13 +92,18 @@ struct ComboMatchResult {
  * @return true if device passes the check
  */
 inline bool deviceMatchesPattern(DEV deviceMask, DEV devAnd, DEV devNot) {
+    // Special case: 0xFFFFFFFF with no exclusions matches any device (legacy default)
+    if (devAnd == 0xFFFFFFFF && devNot == 0) {
+        return true;
+    }
+
     // If devAnd is 0, any device matches
     // Otherwise, all bits in devAnd must be present in deviceMask
     bool andMatches = (devAnd == 0) || ((deviceMask & devAnd) == devAnd);
-    
+
     // None of the bits in devNot can be present in deviceMask
     bool notMatches = (deviceMask & devNot) == 0;
-    
+
     return andMatches && notMatches;
 }
 

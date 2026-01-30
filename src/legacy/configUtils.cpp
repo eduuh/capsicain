@@ -1,5 +1,5 @@
 #pragma once
-#include "pch.h"
+#include "platform/pch.h"
 #include <string>
 #include <filesystem>
 #include <iostream>
@@ -10,68 +10,102 @@
 #include <tlhelp32.h>
 #include <algorithm>
 
-#include "configUtils.h"
-#include "capsicain.h"
-#include "constants.h"
-#include "utils.h"
-#include "scancodes.h"
-#include "modifiers.h"
+#include "legacy/configUtils.h"
+#include "legacy/capsicain_legacy.h"
+#include "platform/constants.h"
+#include "legacy/utils.h"
+#include "legacy/scancodes.h"
+#include "legacy/modifiers.h"
 
 using namespace std;
 
-//cut comments, tab to space, trim, single blanks, lowercase
-void normalizeLine(string &line)
+// Helper: Remove comment from line (everything after '#')
+inline void removeComment(string& line)
 {
     auto idxComment = line.find_first_of('#');
     if (string::npos != idxComment)
         line.erase(idxComment);
+}
 
+// Helper: Normalize whitespace (tabs to spaces, trim, collapse multiple spaces)
+inline void normalizeWhitespace(string& line)
+{
+    // Convert tabs to spaces
     std::replace(line.begin(), line.end(), '\t', ' ');
 
+    // Trim leading whitespace
     line.erase(0, line.find_first_not_of(' '));
+
+    // Trim trailing whitespace
     line.erase(line.find_last_not_of(' ') + 1);
 
+    // Collapse multiple spaces to single space
     std::string::size_type pos;
     while ((pos = line.find("  ")) != std::string::npos)
         line.replace(pos, 2, " ");
+}
 
+// Helper: Convert string to lowercase
+inline void toLowerCase(string& line)
+{
     std::transform(line.begin(), line.end(), line.begin(), ::tolower);
 }
 
-int checkSyntax(std::vector<string> iniLines)
+// Normalize config line: remove comments, normalize whitespace, convert to lowercase
+void normalizeLine(string &line)
+{
+    removeComment(line);
+    normalizeWhitespace(line);
+    toLowerCase(line);
+}
+
+// Helper: Check if line starts with any valid INI keyword
+inline bool isValidKeyword(const string& line)
+{
+    // List of valid INI keywords (all lowercase, checked via prefix match)
+    static const std::vector<string> validKeywords = {
+        "[", "global", "include", "rewire", "combo",
+        "down", "up", "tap", "slow", "repeat", "option", "exe"
+    };
+
+    // Check if line starts with any valid keyword
+    for (const auto& keyword : validKeywords)
+    {
+        if (stringStartsWith(line, keyword))
+            return true;
+    }
+    return false;
+}
+
+int checkSyntax(const std::vector<string>& iniLines)
 {
     int errors = 0;
     bool inAlpha = false;
-    for (std::vector<std::string>::iterator t = iniLines.begin(); t != iniLines.end(); t++) 
+
+    for (const auto& line : iniLines)
     {
-        if (stringStartsWith(*t, "alpha_from"))
+        // Handle alpha block markers
+        if (stringStartsWith(line, "alpha_from"))
+        {
             inAlpha = true;
-        else if (stringStartsWith(*t, "alpha_end"))
+            continue;
+        }
+        if (stringStartsWith(line, "alpha_end"))
         {
             inAlpha = false;
             continue;
         }
+
+        // Skip lines inside alpha blocks
         if (inAlpha)
             continue;
 
-        if (
-            stringStartsWith(*t, "[") ||
-            stringStartsWith(*t, "global") ||
-            stringStartsWith(*t, "include") ||
-            stringStartsWith(*t, "rewire") ||
-            stringStartsWith(*t, "combo") ||
-            stringStartsWith(*t, "down") ||
-            stringStartsWith(*t, "up") ||
-            stringStartsWith(*t, "tap") ||
-            stringStartsWith(*t, "slow") ||
-            stringStartsWith(*t, "repeat") ||
-            stringStartsWith(*t, "option") ||
-            stringStartsWith(*t, "exe")
-            )
-            continue;
-
-        std::cout << "Syntax error: Unknown keyword: " << *t << std::endl;
-        errors++;
+        // Check if line starts with valid keyword
+        if (!isValidKeyword(line))
+        {
+            std::cout << "Syntax error: Unknown keyword: " << line << std::endl;
+            errors++;
+        }
     }
     return errors;
 }
@@ -159,10 +193,10 @@ std::vector<std::string> getTaggedLinesFromIni(std::string tag, std::vector<std:
     return taggedContent;
 }
 
-bool configHasKey(string key, vector<string> sectionLines)
+bool configHasKey(string key, const vector<string>& sectionLines)
 {
     key = stringToLower(key);
-    for (string line : sectionLines)
+    for (const auto& line : sectionLines)
     {
         if (stringCopyFirstToken(line) == key)
             return true;
@@ -170,11 +204,11 @@ bool configHasKey(string key, vector<string> sectionLines)
     return false;
 }
 
-bool configHasTaggedKey(std::string tag, std::string key, std::vector<std::string> sectionLines)
+bool configHasTaggedKey(string tag, string key, const vector<string>& sectionLines)
 {
     tag = stringToLower(tag);
     key = stringToLower(key);
-    for (string line : sectionLines)
+    for (const auto& line : sectionLines)
     {
         if (stringCopyFirstToken(line) == tag
             && stringCopyFirstToken(stringGetRestBehindFirstToken(line)) == key)
@@ -183,20 +217,20 @@ bool configHasTaggedKey(std::string tag, std::string key, std::vector<std::strin
     return false;
 }
 
-bool getStringValueForTaggedKey(string tag, string key, std::string &value, vector<string> sectionLines)
+bool getStringValueForTaggedKey(string tag, string key, string& value, const vector<string>& sectionLines)
 {
     tag = stringToLower(tag);
     key = stringToLower(key);
     vector<string> splitline;
     value = "";
-    for (string line : sectionLines)
+    for (const auto& line : sectionLines)
     {
         splitline = stringSplit(line, ' ');
         if (splitline.size() < 3)
             continue;
         if (splitline.at(0) == tag && splitline.at(1) == key)
         {
-            for (int i = 2; i < splitline.size(); i++)
+            for (size_t i = 2; i < splitline.size(); i++)
                 value += splitline.at(i) + " ";
             normalizeLine(value);
             return true;
@@ -205,10 +239,10 @@ bool getStringValueForTaggedKey(string tag, string key, std::string &value, vect
     return false;
 }
 
-bool getStringValueForKey(std::string key, std::string &value, vector<string> sectionLines)
+bool getStringValueForKey(string key, string& value, const vector<string>& sectionLines)
 {
     key = stringToLower(key);
-    for (string line : sectionLines)
+    for (const auto& line : sectionLines)
     {
         if (stringStartsWith(line, key))
         {
@@ -219,7 +253,7 @@ bool getStringValueForKey(std::string key, std::string &value, vector<string> se
     return false;
 }
 
-bool getIntValueForTaggedKey(string tag, string key, int &value, vector<string> sectionLines)
+bool getIntValueForTaggedKey(string tag, string key, int& value, const vector<string>& sectionLines)
 {
     string strval;
     if (!getStringValueForTaggedKey(tag, key, strval, sectionLines))
@@ -228,7 +262,7 @@ bool getIntValueForTaggedKey(string tag, string key, int &value, vector<string> 
     return stringToInt(strval, value);
 }
 
-bool getIntValueForKey(std::string key, int &value, vector<std::string> sectionLines)
+bool getIntValueForKey(string key, int& value, const vector<string>& sectionLines)
 {
     key = stringToLower(key);
     string strval;
@@ -329,13 +363,13 @@ MOD parseModString(string modString, char filter)
 }
 
 // parses + separated combo that can also include a modstring to keycodes
-bool parseComboParams(string funcParams, vector<int> &vcodes, string * scLabels)
+bool parseComboParams(string funcParams, vector<int>& vcodes, string* scLabels)
 {
     size_t count = vcodes.size();
     bool nppFound = stringReplace(funcParams, "np+", "np@");
     vector<string> labels = stringSplit(funcParams, '+');
     if (nppFound)
-        for (int i = 0; i < labels.size(); i++)
+        for (size_t i = 0; i < labels.size(); i++)
             if (labels[i] == "np@")
                 labels[i] = "np+";
 
@@ -360,7 +394,7 @@ bool parseComboParams(string funcParams, vector<int> &vcodes, string * scLabels)
     }
 
     int isc;
-    for (string label : labels)
+    for (const auto& label : labels)
     {
         isc = getVcode(label, scLabels);
         if (isc < 0)

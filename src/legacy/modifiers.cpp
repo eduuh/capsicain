@@ -1,7 +1,7 @@
 #pragma once
-#include "pch.h"
+#include "platform/pch.h"
 
-#include "modifiers.h"
+#include "legacy/modifiers.h"
 
 //stores {SC_LSHIFT/42 = 00001b},{VK_LCTRL = 010b}, ... {VK_MOD15, 100000000000000b}
 MOD modifierToBitmask[2][NUMBER_OF_MODIFIERS] =

@@ -1,12 +1,12 @@
 #pragma once
-#include "pch.h"
+#include "platform/pch.h"
 #include <iostream>
 #include <map>
 #include <Windows.h>  //for Sleep()
 
-#include "scancodes.h"
-#include "constants.h"
-#include "utils.h"
+#include "legacy/scancodes.h"
+#include "platform/constants.h"
+#include "legacy/utils.h"
 
 using namespace std;
 
