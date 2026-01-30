@@ -1,10 +1,14 @@
 #include <string>
 #include <map>
+#include <cstdint>
 
 #include "platform/interception.h"
 #include "legacy/utils.h"
 #include "legacy/configUtils.h"
 #include "legacy/traybar.h"
+
+// Forward declaration for RuntimeStateService
+namespace capsicain { namespace services { class RuntimeStateService; } }
 
 // Debug logging - runtime conditional based on options
 #define IFDEBUG if(options.debug && !globalState.secretSequenceRecording)
@@ -47,7 +51,7 @@ void keySequenceAppendMakeBreakKey(unsigned short scancode, std::vector<VKeyEven
 
 std::string getSymbolForIKStrokeState(unsigned short state);
 
-bool processOnOffKey();
+bool processOnOffKey(capsicain::services::RuntimeStateService& runtimeState, uint8_t scancode, bool isDownstroke);
 void InterceptionSendCurrentKeystroke();
 void handleConfigSwitch(int scancode);
 // processCommand() replaced by CommandHandler class (see commands/CommandHandler.h)

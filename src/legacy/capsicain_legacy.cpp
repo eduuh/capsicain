@@ -381,6 +381,7 @@ int capsicain_main_impl(Application* app)
     auto& errorService = app->getErrorService();
     auto& profilingService = app->getProfilingService();
     auto& configService = app->getConfigService();
+    auto& runtimeState = app->getRuntimeState();
     ConsoleUI& consoleUI = app->getConsoleUI();
 
     // Set legacy globals for backwards compatibility
@@ -541,29 +542,25 @@ int capsicain_main_impl(Application* app)
                 //low level debugging, show incoming raw key
                 if constexpr (ENABLE_TRACE) consoleUI.printIKStrokeState(interceptionState.currentIKstroke);
 
-                //clear loop state
-                loopState = defaultLoopState;
-
                 //copy InterceptionKeyStroke (unpleasant to use) to plain VKeyEvent
                 VKeyEvent originalVKeyEvent = convertIkstroke2VKeyEvent(interceptionState.currentIKstroke);
-                loopState.scancode = originalVKeyEvent.vcode;  //scancode is write-once (except for the AppleWinAlt option)
-                loopState.vcode = loopState.scancode;          //vcode may be altered below
-                loopState.isDownstroke = originalVKeyEvent.isDownstroke;
+                uint8_t scancode = originalVKeyEvent.vcode;  //scancode from hardware
+                bool isDownstroke = originalVKeyEvent.isDownstroke;
 
                 //if GLOBAL capsicainEnableDisable is configured, it toggles the ON/OFF state
                 if (globals.capsicainOnOffKey != -1)
                 {
-                    if (processOnOffKey())
+                    if (processOnOffKey(runtimeState, scancode, isDownstroke))
                         continue;
                 }
                 //if disabled, just forward
-                if (!globalState.capsicainOn)
+                if (!runtimeState.isCapsicainOn())
                 {
                     InterceptionSendCurrentKeystroke();
                     continue;
                 }
 
-                IFDEBUG if(globalState.activeConfig == 0) cout << ". ";
+                IFDEBUG if(runtimeState.getActiveConfig() == 0) cout << ". ";
 
                 //ignore secondary keyboard?
                 if (options.processOnlyFirstKeyboard
@@ -583,9 +580,9 @@ int capsicain_main_impl(Application* app)
                     //detail to debug the "new device after sleep, reboot after 10 new devices"
                     if constexpr (ENABLE_TRACE) cout << endl
                         << "<" << endl
-                        << "new keyboard: " << (globalState.deviceIsAppleKeyboard ? "Apple keyboard" : "IBM keyboard") << endl
+                        << "new keyboard: " << (runtimeState.isAppleKeyboard() ? "Apple keyboard" : "IBM keyboard") << endl
                         << "new keyboard count: " << ++interceptionState.newKeyboardCounter << endl
-                        << "keyboard device id: " << globalState.deviceIdKeyboard << endl
+                        << "keyboard device id: " << runtimeState.getDeviceId() << endl
                         << "interceptionDevice: " << interceptionState.interceptionDevice << endl
                         << getTimestamp()
                         << ">" << endl;
@@ -609,37 +606,38 @@ int capsicain_main_impl(Application* app)
                 }
 
                 //ESC Commands
-                if (loopState.scancode == SC_ESCAPE)
+                if (scancode == SC_ESCAPE)
                 {
-                    IFDEBUG cout << endl << "(Hard ESC" << (loopState.isDownstroke ? "v " : "^ ") << ")";
-                    globalState.realEscapeIsDown = loopState.isDownstroke;
+                    IFDEBUG cout << endl << "(Hard ESC" << (isDownstroke ? "v " : "^ ") << ")";
+                    runtimeState.setRealEscapeDown(isDownstroke);
 
                     //stop macro recording?
-                    if (globalState.recordingMacro > 0)
+                    if (runtimeState.getRecordingMacroIndex() > 0)
                     {
-                        IFDEBUG cout << endl << "Stop recording macro #" << globalState.recordingMacro;
+                        int recordingIndex = runtimeState.getRecordingMacroIndex();
+                        IFDEBUG cout << endl << "Stop recording macro #" << recordingIndex;
                         //wrap macro in tokens to tmprelease / restore keys, to deal with the physical 'Ctrl down' that started the macro
-                        if (globalState.recordedMacros[globalState.recordingMacro].size() > 0)
-                            globalState.secretSequenceRecording = false;
+                        if (runtimeState.getMacro(recordingIndex).size() > 0)
+                            runtimeState.setSecretSequenceRecording(false);
                         {
-                            globalState.recordedMacros[globalState.recordingMacro].push_back({ VK_CPS_TEMPRESTOREKEYS,true });
-                            globalState.recordedMacros[globalState.recordingMacro].insert(globalState.recordedMacros[globalState.recordingMacro].begin(), { VK_CPS_TEMPRELEASEKEYS,true });
+                            runtimeState.getMacroMutable(recordingIndex).push_back({ VK_CPS_TEMPRESTOREKEYS,true });
+                            runtimeState.getMacroMutable(recordingIndex).insert(runtimeState.getMacroMutable(recordingIndex).begin(), { VK_CPS_TEMPRELEASEKEYS,true });
                         }
-                        globalState.recordingMacro = -1;
-                        updateTrayIcon(true, globalState.recordingMacro >= 0, globalState.activeConfig);
+                        runtimeState.stopRecording();
+                        updateTrayIcon(true, runtimeState.isRecording(), runtimeState.getActiveConfig());
                         continue;
                     }
                 }
-                else if (globalState.realEscapeIsDown && loopState.isDownstroke)
+                else if (runtimeState.isRealEscapeDown() && isDownstroke)
                 {
-                    if (globals.forwardEscKey.find(loopState.scancode) == globals.forwardEscKey.end())
+                    if (globals.forwardEscKey.find(scancode) == globals.forwardEscKey.end())
                         continue;
                 }
-                else if (globalState.realEscapeIsDown && !loopState.isDownstroke)
+                else if (runtimeState.isRealEscapeDown() && !isDownstroke)
                 {
-                    if (globals.disableEscKey.find(loopState.scancode) == globals.disableEscKey.end())
+                    if (globals.disableEscKey.find(scancode) == globals.disableEscKey.end())
                     {
-                        if (commandHandler.handle(loopState.scancode))
+                        if (commandHandler.handle(scancode))
                         {
                             continue;
                         }
@@ -650,7 +648,7 @@ int capsicain_main_impl(Application* app)
                             exit = true;
                         }
                     }
-                    if (globals.forwardEscKey.find(loopState.scancode) == globals.forwardEscKey.end())
+                    if (globals.forwardEscKey.find(scancode) == globals.forwardEscKey.end())
                         continue;
                 }
 
@@ -679,9 +677,9 @@ int capsicain_main_impl(Application* app)
                     continue;
                 }
                 */
-                
+
                 //Config 0: standard keyboard, no further processing, just forward everything
-                if (globalState.activeConfig == DISABLED_CONFIG_NUMBER)
+                if (runtimeState.getActiveConfig() == DISABLED_CONFIG_NUMBER)
                 {
                     InterceptionSendCurrentKeystroke();
                     continue;
@@ -791,7 +789,7 @@ void betaTest() //ESC+B
     //    cout << endl << "not flipped";
 }
 
-bool processOnOffKey()
+bool processOnOffKey(capsicain::services::RuntimeStateService& runtimeState, uint8_t scancode, bool isDownstroke)
 {
     //handle the @#$ Pause key
     bool pauseKeyTriggeredOnOff = false;
@@ -805,7 +803,7 @@ bool processOnOffKey()
             return true;
         }
 
-        if (loopState.scancode == SC_NUMLOCK
+        if (scancode == SC_NUMLOCK
             && interceptionState.previousIKstroke1.code == SC_LCTRL
             && interceptionState.previousIKstroke1.state > 3)
         {
@@ -814,17 +812,17 @@ bool processOnOffKey()
     }
 
     //toggle ON/OFF ?
-    if (loopState.scancode == globals.capsicainOnOffKey || pauseKeyTriggeredOnOff)
+    if (scancode == globals.capsicainOnOffKey || pauseKeyTriggeredOnOff)
     {
-        if (loopState.isDownstroke)
+        if (isDownstroke)
         {
-            globalState.capsicainOn = !globalState.capsicainOn;
-            updateTrayIcon(globalState.capsicainOn, globalState.recordingMacro >= 0, globalState.activeConfig);
-            if (globalState.capsicainOn)
+            runtimeState.toggleCapsicainOn();
+            updateTrayIcon(runtimeState.isCapsicainOn(), runtimeState.isRecording(), runtimeState.getActiveConfig());
+            if (runtimeState.isCapsicainOn())
             {
                 reset();
                 cout << endl << endl << "[" << getPrettyVKLabel(globals.capsicainOnOffKey) << "] -> Capsicain ON";
-                cout << endl << "active config: " << globalState.activeConfig << " = " << globalState.activeConfigName;
+                cout << endl << "active config: " << runtimeState.getActiveConfig() << " = " << runtimeState.getActiveConfigName();
             }
             else
                 cout << endl << endl << "[" << getPrettyVKLabel(globals.capsicainOnOffKey) << "] -> Capsicain OFF";
@@ -836,7 +834,7 @@ bool processOnOffKey()
             || globals.capsicainOnOffKey == SC_CAPS)
         {
             if constexpr (ENABLE_TRACE) cout << "OnOff event: setting LED for: " << getPrettyVKLabel(globals.capsicainOnOffKey);
-            setLED(globals.capsicainOnOffKey, globalState.capsicainOn);
+            setLED(globals.capsicainOnOffKey, runtimeState.isCapsicainOn());
         }
         return true;
     }
